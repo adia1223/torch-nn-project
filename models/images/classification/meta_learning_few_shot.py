@@ -16,8 +16,6 @@ class FewShotLearningTask(nn.Module):
     def process_support_set(self, support_set):
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
 
     def compute_loss(self, x, y, support_set=None):
         if support_set is not None:
