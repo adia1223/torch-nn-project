@@ -332,8 +332,8 @@ if __name__ == '__main__':
     N_WAY = 5
     RECORD = 35
 
-    DATASET = 'miniImageNet'
-    BASE_CLASSES = 80
+    DATASET = 'gtsrb'
+    BASE_CLASSES = 20
 
     # EVAL_PERIOD = 10
     # for cur_model in (
@@ -346,12 +346,12 @@ if __name__ == '__main__':
     #                     n_iterations=cur_n_it,
     #                     eval_period=EVAL_PERIOD, record=RECORD, augment_prob=1)
 
-    EVAL_PERIOD = 1000
+    EVAL_PERIOD = 500
     for cur_model in (
-            # "ProtoNet",
-            "RelationNet",
+            "ProtoNet",
+            # "RelationNet",
     ):
-        for cur_n_shot, cur_n_it in ((5, 40000), (1, 40000)):
+        for cur_n_shot, cur_n_it in ((5, 5000), (1, 40000)):
             train_model(model_name=cur_model, dataset_name=DATASET, n_shot=cur_n_shot, n_way=N_WAY,
                         base_classes=BASE_CLASSES,
                         n_iterations=cur_n_it,

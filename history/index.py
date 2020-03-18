@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-INDEX_PATH = "..\\index.csv"
+INDEX_PATH = r"D:\petrtsv\projects\ds\torch-nn-project\index.csv"
 NAME_COL = 'Name'
 
 index_df = None
