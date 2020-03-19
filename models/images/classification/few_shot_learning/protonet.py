@@ -14,6 +14,7 @@ class ProtoNet(DistanceBasedFSLSolution):
     def __init__(self, backbone: nn.Module):
         super(ProtoNet, self).__init__()
         self.feature_extractor = backbone
+        self.feature_extractor.fc = nn.Sequential()
 
     def extract_features(self, batch: torch.Tensor) -> torch.Tensor:
         return self.feature_extractor(batch)

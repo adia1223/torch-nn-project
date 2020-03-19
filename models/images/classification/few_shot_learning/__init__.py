@@ -59,7 +59,7 @@ class DistanceBasedFSLSolution(FewShotLearningSolution):
                                                                                    dim=0) -
                               query_set_features_prepared).pow(2), dim=2)
 
-        return distance
+        return -distance
 
 
 def accuracy(labels, labels_pred):
