@@ -7,7 +7,7 @@ from torch.utils.data.dataset import Dataset
 from torchvision import models
 
 from data import LabeledSubdataset
-from models.images.classification import Resnet18NoPooling
+from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling
 from utils import remove_dim, pretty_time
 
 
@@ -19,9 +19,9 @@ class FewShotLearningSolution(nn.Module):
         raise NotImplementedError
 
 
-class DistanceBasedFSLSolution(FewShotLearningSolution):
+class ProtoNetBasedFSLSolution(FewShotLearningSolution):
     def __init__(self):
-        super(DistanceBasedFSLSolution, self).__init__()
+        super(ProtoNetBasedFSLSolution, self).__init__()
 
         self.n_classes = None
         self.support_set_size = None
@@ -35,10 +35,6 @@ class DistanceBasedFSLSolution(FewShotLearningSolution):
 
     def get_prototypes(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
-
-    # TODO
-    # def distance(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    #     raise NotImplementedError
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         self.n_classes = support_set.size(0)
@@ -82,7 +78,8 @@ OPTIMIZERS = {
 FEATURE_EXTRACTORS = {
     'resnet18': lambda: models.resnet18(pretrained=False),
     'googlenet': lambda: models.googlenet(pretrained=False),
-    'resnet18-np': lambda: Resnet18NoPooling(pretrained=False),
+    'resnet18-np': lambda: ResNet18NoPooling(pretrained=False),
+    'resnet12-np': lambda: ResNet12NoPooling(),
 }
 
 

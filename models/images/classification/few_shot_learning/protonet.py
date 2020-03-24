@@ -4,13 +4,13 @@ import torch
 from torch import nn
 
 from data import LabeledSubdataset, LABELED_DATASETS
-from models.images.classification.few_shot_learning import DistanceBasedFSLSolution, FSLEpisodeSampler, \
+from models.images.classification.few_shot_learning import ProtoNetBasedFSLSolution, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS, OPTIMIZERS, accuracy, evaluate_solution
 from utils import pretty_time
 from visualization.plots import PlotterWindow
 
 
-class ProtoNet(DistanceBasedFSLSolution):
+class ProtoNet(ProtoNetBasedFSLSolution):
     def __init__(self, backbone: nn.Module):
         super(ProtoNet, self).__init__()
         self.feature_extractor = backbone
