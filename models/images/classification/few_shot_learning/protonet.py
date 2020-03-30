@@ -35,7 +35,7 @@ def train_model(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubda
     loss_fn = nn.CrossEntropyLoss().to(device)
     optimizer = OPTIMIZERS[optimizer_name](model=model)
 
-    base_sampler = FSLEpisodeSampler(subdataset=base_subdataset, n_way=n_way, n_shot=n_shot, batch_size=batch_size)
+    base_sampler = FSLEpisodeSampler(subdataset=base_subdataset, n_way=15, n_shot=n_shot, batch_size=batch_size)
     val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=batch_size)
 
     loss_plotter = PlotterWindow(interval=1000)
@@ -116,7 +116,7 @@ def train_model(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubda
 
 if __name__ == '__main__':
     print("Preparations for training...")
-    dataset = LABELED_DATASETS['gtsrb'](augment_prob=0.0)
+    dataset = LABELED_DATASETS['miniImageNet'](augment_prob=0.0)
     base_subdataset, val_subdataset = dataset.subdataset.extract_classes(20)
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)

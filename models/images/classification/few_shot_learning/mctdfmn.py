@@ -1,6 +1,8 @@
+import os
 import time
 from typing import Tuple
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -10,6 +12,7 @@ from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoPoolingBackbone
 from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS
+from sessions import Session
 from utils import pretty_time, remove_dim
 from visualization.plots import PlotterWindow
 
@@ -58,13 +61,24 @@ class MCTDFMN(nn.Module):
         self.feature_extractor = backbone
         self.featmap_size = backbone.output_featmap_size()
         self.scale_module = ScaleModule(backbone.output_features(), self.featmap_size)
-        self.feature_extractor.fc = nn.Sequential()
 
         self.train_ts = train_transduction_steps
         self.test_ts = test_transduction_steps
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.lmb = lmb
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='conv2d')
+                try:
+                    nn.init.constant_(m.bias, 0)
+                except AttributeError as e:
+                    pass
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def extract_features(self, batch: torch.Tensor) -> torch.Tensor:
         x = self.feature_extractor(batch)
@@ -141,19 +155,21 @@ class MCTDFMN(nn.Module):
     def forward_with_loss(self, support_set: torch.Tensor, query_set: torch.Tensor,
                           labels: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         output = self(support_set, query_set)
-        loss_i = self.loss_fn(output, labels) * self.lmb
-        query_set_features_t = self.query_set_features.permute(0, 2, 3, 1)
-        prototypes_t = self.class_prototypes.permute(0, 2, 3, 1)
-        pixel_wise_distances_t = self.get_l2_distances(query_set_features_t, prototypes_t)
-        pixel_wise_distances = pixel_wise_distances_t.permute(0, 2, 3, 1)
-        # print(self.query_set_size * (self.featmap_size ** 2), self.n_classes)
-        labels_expanded = labels.repeat_interleave(repeats=self.featmap_size ** 2)
-        pixel_wise_losses = F.cross_entropy(
-            pixel_wise_distances.reshape(self.query_set_size * (self.featmap_size ** 2), self.n_classes),
-            labels_expanded)
-        # print(pixel_wise_losses)
-        loss_d = pixel_wise_losses / self.query_set_size
-        res_loss = loss_i + loss_d
+        loss_i = self.loss_fn(output, labels)  # * self.lmb
+        # query_set_features_t = self.query_set_features.permute(0, 2, 3, 1)
+        # prototypes_t = self.class_prototypes.permute(0, 2, 3, 1)
+        # pixel_wise_distances_t = self.get_l2_distances(query_set_features_t, prototypes_t)
+        # pixel_wise_distances = pixel_wise_distances_t.permute(0, 2, 3, 1)
+        # # print(self.query_set_size * (self.featmap_size ** 2), self.n_classes)
+        # labels_expanded = labels.repeat_interleave(repeats=self.featmap_size ** 2)
+        # pixel_wise_losses = F.cross_entropy(
+        #     pixel_wise_distances.reshape(self.query_set_size * (self.featmap_size ** 2), self.n_classes),
+        #     labels_expanded)
+        # # print(pixel_wise_losses)
+        # loss_d = pixel_wise_losses / self.query_set_size
+        # res_loss = loss_i + loss_d
+
+        res_loss = loss_i
 
         return output, res_loss
 
@@ -162,11 +178,31 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
                   n_iterations: int, batch_size: int, eval_period: int,
                   train_n_way=15,
                   backbone_name='resnet12-np', lr=0.01,
-                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), session_info=None):
-    if session_info is None:
-        session_info = dict()
+                  train_ts_steps=1,
+                  test_ts_steps=10,
+                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
+    session_info = {
+        "task": "few-shot learning",
+        "model": "MCT_DFMN",
+        "feature_extractor": backbone_name,
+        "n_iterations": n_iterations,
+        "eval_period": eval_period,
+        # "dataset": dataset_name,
+        # "optimizer": optimizer_name,
+        "batch_size": batch_size,
+        "n_shot": n_shot,
+        "n_way": n_way,
+        "train_n_way": train_n_way,
+        "train_ts_steps": train_ts_steps,
+        "test_ts_steps": test_ts_steps,
+        "optimizer": 'sgd'
+    }
+
+    session_info.update(kwargs)
+
     backbone = FEATURE_EXTRACTORS[backbone_name]()
-    model = MCTDFMN(backbone=backbone).to(device)
+    model = MCTDFMN(backbone=backbone, test_transduction_steps=test_ts_steps,
+                    train_transduction_steps=train_ts_steps).to(device)
 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, nesterov=True, weight_decay=0.0005, momentum=0.9)
     scheduler = LambdaLR(optimizer, lr_lambda=lr_schedule)
@@ -181,6 +217,11 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     loss_plotter.new_line('Loss')
     accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
+
+    losses = []
+    acc_train = []
+    acc_val = []
+    val_iters = []
 
     best_accuracy = 0
     best_iteration = -1
@@ -214,11 +255,18 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         loss_plotter.add_point('Loss', iteration, loss.item())
         accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
+        losses.append(loss.item())
+        acc_train.append(cur_accuracy)
+
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
             val_start_time = time.time()
 
             val_accuracy = evaluate_solution(model, val_sampler)
             accuracy_plotter.add_point('Validation Accuracy', iteration, val_accuracy)
+
+            acc_val.append(val_accuracy)
+            val_iters.append(iteration + 1)
+
             if val_accuracy > best_accuracy:
                 best_accuracy = val_accuracy
                 best_iteration = iteration
@@ -252,11 +300,53 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     session_info['best_iteration'] = best_iteration
     session_info['execution_time'] = training_time
 
+    session = Session()
+    session.build(name="FSL_MCTDFMN", comment=r"Few-Shot Learning solution based on https://arxiv.org/abs/2002.12017",
+                  **session_info)
+    # session.data.update(session_info)
+    # save_record(name="Few-Shot Learning Training: MCT + DFMN", **session_info)
+
+    torch.save(model, os.path.join(session.data['output_dir'], "trained_model_state_dict.tar"))
+    iters = list(range(1, n_iterations + 1))
+
+    plt.figure(figsize=(20, 20))
+    plt.plot(iters, losses, label="Loss")
+    plt.legend()
+    plt.savefig(os.path.join(session.data['output_dir'], "loss_plot.png"))
+
+    plt.figure(figsize=(20, 20))
+    plt.plot(iters, acc_train, label="Train Accuracy")
+    plt.plot(val_iters, acc_val, label="Test Accuracy")
+    plt.legend()
+    plt.savefig(os.path.join(session.data['output_dir'], "acc_plot.png"))
+
+    session.save_info()
+
 
 if __name__ == '__main__':
+
+    DATASET_NAME = 'miniImageNet'
+    BASE_CLASSES = 80
+    AUGMENT_PROB = 1.0
+    ITERATIONS = 60000
+    BATCH_SIZE = 16
+    N_WAY = 5
+    EVAL_PERIOD = 1000
+    RECORD = 40
+
+    # N_SHOT = 5
+
     print("Preparations for training...")
-    dataset = LABELED_DATASETS['gtsrb'](augment_prob=0.5)
-    base_subdataset, val_subdataset = dataset.subdataset.extract_classes(20)
+    dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB)
+    base_subdataset, val_subdataset = dataset.subdataset.extract_classes(BASE_CLASSES)
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
-    train_mctdfmn(base_subdataset, val_subdataset, 5, 5, 40000, 16, 1000)
+
+    for N_SHOT in (5, 1):
+        train_mctdfmn(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
+                      n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
+                      eval_period=EVAL_PERIOD,
+                      record=RECORD,
+                      augment=AUGMENT_PROB,
+                      dataset=DATASET_NAME,
+                      base_classes=BASE_CLASSES)

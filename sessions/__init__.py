@@ -33,7 +33,7 @@ class Session(object):
 
     def __create__(self, name, comment, **kwargs):
         if name is None:
-            raise ValueError("Session name can not br None")
+            raise ValueError("Session name can not be None")
         self.screen_name = name
         now = datetime.now()
         self.full_name = SESSION_FOLDER_PATTERN % (self.screen_name, now.strftime(SESSION_CREATION_TIME_PATTERN))
@@ -51,7 +51,6 @@ class Session(object):
         self.data['output_dir'] = self.output_dir
         self.data['comment'] = comment
 
-        self.info = {}
         to_json = {}
         for key in self.data:
             if not is_jsonable(self.data[key]):
@@ -77,5 +76,5 @@ class Session(object):
 
     def save_info(self):
         with open(os.path.join(self.output_dir, "info.json"), 'w') as fout:
-            json.dump(self.info, fout, indent=4)
-        save_record(self.full_name, **self.info)
+            json.dump(self.data, fout, indent=4)
+        save_record(self.full_name, **self.data)

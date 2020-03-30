@@ -17,7 +17,7 @@ augment = transforms.Compose(
     [
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.ColorJitter(),
+        # transforms.ColorJitter(),
         transforms.RandomPerspective(p=0.2, distortion_scale=0.25),
     ]
 )

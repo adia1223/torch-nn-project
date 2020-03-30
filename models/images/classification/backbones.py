@@ -24,6 +24,18 @@ class ResNet18NoPooling(NoPoolingBackbone):
         self.backbone = torchvision.models.resnet18(pretrained=pretrained)
         self.dropout = nn.Dropout(drop_ratio)
 
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='conv2d')
+                try:
+                    nn.init.constant_(m.bias, 0)
+                except AttributeError as e:
+                    pass
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, x):
         x = self.backbone.conv1(x)
         x = self.backbone.bn1(x)
@@ -48,11 +60,26 @@ class ResNet18NoPooling(NoPoolingBackbone):
         return 512
 
 
+# class BaseResNet18
+
+
 class ResNet12NoPooling(NoPoolingBackbone):
     def __init__(self, drop_ratio=0.1):
         super(ResNet12NoPooling, self).__init__()
         self.backbone = torchvision.models.ResNet(BasicBlock, [1, 1, 1, 1])
         self.dropout = nn.Dropout(drop_ratio)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='conv2d')
+                try:
+                    nn.init.constant_(m.bias, 0)
+                except AttributeError as e:
+                    pass
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = self.backbone.conv1(x)
@@ -68,6 +95,7 @@ class ResNet12NoPooling(NoPoolingBackbone):
         x = self.dropout(x)
         x = self.backbone.layer4(x)
         x = self.dropout(x)
+        # print(x.size())
 
         return x
 
@@ -135,14 +163,14 @@ class ResNet12NoPooling(NoPoolingBackbone):
 #         # self.weight = nn.Linear(512, 64)
 #         # nn.init.xavier_uniform_(self.weight.weight)
 #
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='conv2d')
-#                 nn.init.constant_(m.bias, 0)
+# for m in self.modules():
+#     if isinstance(m, nn.Conv2d):
+#         nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='conv2d')
+#         nn.init.constant_(m.bias, 0)
 #
-#             elif isinstance(m, nn.BatchNorm2d):
-#                 nn.init.constant_(m.weight, 1)
-#                 nn.init.constant_(m.bias, 0)
+#     elif isinstance(m, nn.BatchNorm2d):
+#         nn.init.constant_(m.weight, 1)
+#         nn.init.constant_(m.bias, 0)
 #
 #     def _make_layer(self, block, planes):
 #         layers = [block(self.inplanes, planes)]
