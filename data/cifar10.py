@@ -43,7 +43,7 @@ class CIFAR10Dataset(data.LabeledDataset):
     CLASSES = 10
 
     def __init__(self, root="C:\\datasets", augment_prob=0.0, reduce=0.0,
-                 random_seed=42):
+                 random_seed=42, **kwargs):
         self.reduce = reduce
         random.seed(random_seed)
 

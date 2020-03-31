@@ -7,7 +7,7 @@ from torch.utils.data.dataset import Dataset
 from torchvision import models
 
 from data import LabeledSubdataset
-from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling
+from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling, ResNet12NoPoolingOriginal
 from utils import remove_dim, pretty_time
 
 
@@ -80,6 +80,7 @@ FEATURE_EXTRACTORS = {
     'googlenet': lambda: models.googlenet(pretrained=False),
     'resnet18-np': lambda: ResNet18NoPooling(pretrained=False),
     'resnet12-np': lambda: ResNet12NoPooling(),
+    'resnet12-np-o': lambda: ResNet12NoPoolingOriginal(),
 }
 
 
@@ -119,6 +120,39 @@ class FSLEpisodeSampler(Dataset):
         support_set = torch.stack(support_set)
 
         return support_set, batch
+
+
+class FSLEpisodeSamplerGlobalLabels(FSLEpisodeSampler):
+    def sample(self):
+        cur_subdataset, _ = self.subdataset.extract_classes(self.n_way)
+        support_subdataset = cur_subdataset.balance(self.n_shot)
+        classes_mapping = {}
+
+        support_set_labels = support_subdataset.labels()
+
+        support_set = [[] for i in range(len(support_set_labels))]
+
+        h = 0
+        for label in support_set_labels:
+            classes_mapping[label] = h
+            h += 1
+
+        for i in range(len(support_subdataset)):
+            item, label, _ = support_subdataset[i]
+            support_set[classes_mapping[label]].append(item.to(self.device))
+
+        batch = list(cur_subdataset.random_batch(self.batch_size))
+        # batch.append([-1] * len(batch[1]))
+        for i in range(len(batch[1])):
+            # batch[2][i] = batch[1][i].item()
+            batch[1][i] = classes_mapping[batch[1][i].item()]
+        # batch[2] = torch.tensor(batch[2])
+
+        for i in range(len(support_set)):
+            support_set[i] = torch.stack(support_set[i])
+        support_set = torch.stack(support_set)
+
+        return support_set, batch, classes_mapping
 
 
 def evaluate_solution(model: FewShotLearningSolution, validation_sampler: FSLEpisodeSampler,

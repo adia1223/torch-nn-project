@@ -44,7 +44,7 @@ class GTSRBDataset(data.LabeledDataset):
     CLASSES = 43
 
     def __init__(self, data_dir="C:\\datasets\\gtsrb-german-traffic-sign", augment_prob=0.0, reduce=0.0,
-                 random_seed=42):
+                 random_seed=42, **kwargs):
         self.reduce = reduce
         random.seed(random_seed)
 

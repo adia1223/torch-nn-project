@@ -28,3 +28,10 @@ def pretty_time(seconds):
     else:
         res += '%.2f s' % seconds
     return res
+
+
+def inverse_mapping(m: dict) -> dict:
+    res = {}
+    for e in m:
+        res[m[e]] = e
+    return res

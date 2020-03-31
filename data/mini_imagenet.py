@@ -6,29 +6,6 @@ from torchvision.transforms import transforms
 
 import data
 
-resize = transforms.Compose(
-    [
-        transforms.Resize(224),
-        transforms.CenterCrop(224),
-    ]
-)
-
-augment = transforms.Compose(
-    [
-        transforms.RandomRotation(degrees=15),
-        transforms.RandomHorizontalFlip(p=0.5),
-        # transforms.ColorJitter(),
-        transforms.RandomPerspective(p=0.2, distortion_scale=0.25),
-    ]
-)
-
-normalize = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-    ]
-)
-
 
 class ImageItem(object):
     def __init__(self, source: ImageFolder, index: int):
@@ -42,20 +19,49 @@ class ImageItem(object):
 class MiniImageNetDataset(data.LabeledDataset):
     CLASSES = 100
 
-    def __init__(self, root="C:\\datasets\\mini-imagenet\\train", augment_prob=0.0, reduce=0.0,
-                 random_seed=42):
+    def __init__(self, root="C:\\datasets\\mini-imagenet\\train", augment_prob=0.0, reduce=0.0, image_size=84,
+                 random_seed=42, **kwargs):
         self.reduce = reduce
         random.seed(random_seed)
 
+        resize_train = transforms.Compose(
+            [
+                transforms.Resize(image_size),
+                transforms.RandomCrop(image_size),
+            ]
+        )
+        resize_test = transforms.Compose(
+            [
+                transforms.Resize(image_size),
+                transforms.RandomCrop(image_size),
+            ]
+        )
+
+        augment = transforms.Compose(
+            [
+                # transforms.RandomRotation(degrees=15),
+                transforms.RandomHorizontalFlip(p=0.5),
+                # transforms.ColorJitter(),
+                # transforms.RandomPerspective(p=0.2, distortion_scale=0.25),
+            ]
+        )
+
+        normalize = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ]
+        )
+
         self.test_transform = transforms.Compose(
             [
-                resize,
+                resize_test,
                 normalize
             ]
         )
         self.train_transform = transforms.Compose(
             [
-                resize,
+                resize_train,
                 transforms.RandomApply([augment], p=augment_prob),
                 normalize
             ]

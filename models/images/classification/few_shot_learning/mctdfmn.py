@@ -11,9 +11,9 @@ from torch.optim.lr_scheduler import LambdaLR
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoPoolingBackbone
 from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
-    FEATURE_EXTRACTORS
+    FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels
 from sessions import Session
-from utils import pretty_time, remove_dim
+from utils import pretty_time, remove_dim, inverse_mapping
 from visualization.plots import PlotterWindow
 
 
@@ -49,7 +49,9 @@ def lr_schedule(iter: int):
 
 
 class MCTDFMN(nn.Module):
-    def __init__(self, backbone: NoPoolingBackbone, train_transduction_steps=1, test_transduction_steps=10, lmb=0.2):
+    def __init__(self, train_classes: int, backbone: NoPoolingBackbone, train_transduction_steps=1,
+                 test_transduction_steps=10, lmb=0.2, all_global_prototypes=True,
+                 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
         super(MCTDFMN, self).__init__()
         self.n_classes = None
         self.support_set_size = None
@@ -57,10 +59,18 @@ class MCTDFMN(nn.Module):
         self.class_prototypes = None
         self.query_set_features = None
         self.query_set_size = None
+        self.device = device
+
+        self.train_classes = train_classes
+        self.all_global_prototypes = all_global_prototypes
 
         self.feature_extractor = backbone
         self.featmap_size = backbone.output_featmap_size()
+        self.featmap_size2 = self.featmap_size ** 2
         self.scale_module = ScaleModule(backbone.output_features(), self.featmap_size)
+        self.global_proto = nn.Linear(in_features=backbone.output_features(), out_features=train_classes)
+
+        nn.init.xavier_uniform_(self.global_proto.weight)
 
         self.train_ts = train_transduction_steps
         self.test_ts = test_transduction_steps
@@ -104,7 +114,7 @@ class MCTDFMN(nn.Module):
         return (a - b).pow(2).sum(dim=1)
 
     def l2_distance(self, a: torch.Tensor, b: torch.Tensor):
-        return (a - b).pow(2).sum(dim=3)
+        return (a - b).pow(2).sum(dim=1)
 
     def get_proba(self, query_set: torch.Tensor):
         return F.softmax(self.get_distances(query_set), dim=1)
@@ -117,10 +127,13 @@ class MCTDFMN(nn.Module):
         return -distances
 
     def get_l2_distances(self, query_set: torch.Tensor, prototypes: torch.Tensor):
-        query_set_expanded = query_set.repeat_interleave(self.n_classes, dim=0)
-        prototypes_expanded = prototypes.repeat(self.query_set_size, 1, 1, 1)
+        cur_n_classes = prototypes.size(0)
+        cur_query_set_size = query_set.size(0)
+
+        query_set_expanded = query_set.repeat_interleave(cur_n_classes, dim=0)
+        prototypes_expanded = prototypes.repeat(cur_query_set_size, 1)
         distances = self.l2_distance(query_set_expanded, prototypes_expanded)
-        distances = torch.stack(distances.split(self.n_classes))
+        distances = torch.stack(distances.split(cur_n_classes))
         return -distances
 
     def update_prototypes(self, support_set: torch.Tensor, query_set: torch.Tensor):
@@ -153,33 +166,50 @@ class MCTDFMN(nn.Module):
         return self.get_distances(self.query_set_features)
 
     def forward_with_loss(self, support_set: torch.Tensor, query_set: torch.Tensor,
-                          labels: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+                          labels: torch.Tensor, global_classes_mapping: dict) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+
         output = self(support_set, query_set)
-        loss_i = self.loss_fn(output, labels)  # * self.lmb
-        # query_set_features_t = self.query_set_features.permute(0, 2, 3, 1)
-        # prototypes_t = self.class_prototypes.permute(0, 2, 3, 1)
-        # pixel_wise_distances_t = self.get_l2_distances(query_set_features_t, prototypes_t)
-        # pixel_wise_distances = pixel_wise_distances_t.permute(0, 2, 3, 1)
-        # # print(self.query_set_size * (self.featmap_size ** 2), self.n_classes)
-        # labels_expanded = labels.repeat_interleave(repeats=self.featmap_size ** 2)
-        # pixel_wise_losses = F.cross_entropy(
-        #     pixel_wise_distances.reshape(self.query_set_size * (self.featmap_size ** 2), self.n_classes),
-        #     labels_expanded)
-        # # print(pixel_wise_losses)
-        # loss_d = pixel_wise_losses / self.query_set_size
-        # res_loss = loss_i + loss_d
+        loss_i = self.loss_fn(output, labels)
 
-        res_loss = loss_i
+        cur_labels = labels.clone().repeat_interleave(self.featmap_size2, dim=0)
+        cur_global_prototypes = self.global_proto.weight
+        inv_mapping = inverse_mapping(global_classes_mapping)
+        if self.all_global_prototypes:
+            for i in range(cur_labels.size(0)):
+                cur_labels[i] = inv_mapping[cur_labels[i].item()]
+        else:
+            indices = []
+            for i in range(support_set.size(0)):
+                indices.append(inv_mapping[i])
+            indices = torch.tensor(indices, device=self.device)
+            cur_global_prototypes = torch.index_select(cur_global_prototypes, 0, indices)
+        # print(cur_labels.size())
 
-        return output, res_loss
+        expanded_global_prototypes = cur_global_prototypes
+        # expanded_query_set = torch.reshape(self.query_set_features, (self.query_set_features.size(0), -1))
+        expanded_query_set = self.query_set_features.permute(0, 2, 3, 1).reshape((-1, self.query_set_features.size(1)))
+        # print(expanded_query_set.shape)
+        # print(expanded_global_prototypes.shape)
+        d_distances = self.get_l2_distances(expanded_query_set, expanded_global_prototypes)
+        # print(d_distances.shape)
+        loss_d = self.loss_fn(d_distances, cur_labels) * self.featmap_size2
+        # print(loss_d.item(), loss_i.item())
+
+        res_loss = (0.2 * loss_i) + loss_d
+
+        return output, res_loss, loss_i, loss_d
 
 
 def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
                   n_iterations: int, batch_size: int, eval_period: int,
+                  dataset_classes: int,
+                  image_size: int,
                   train_n_way=15,
                   backbone_name='resnet12-np', lr=0.01,
                   train_ts_steps=1,
                   test_ts_steps=10,
+                  all_global_prototypes=True,
                   device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
     session_info = {
         "task": "few-shot learning",
@@ -195,30 +225,37 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         "train_n_way": train_n_way,
         "train_ts_steps": train_ts_steps,
         "test_ts_steps": test_ts_steps,
-        "optimizer": 'sgd'
+        "optimizer": 'sgd',
+        "all_global_prototypes": all_global_prototypes,
+        "image_size": image_size,
     }
 
     session_info.update(kwargs)
 
     backbone = FEATURE_EXTRACTORS[backbone_name]()
     model = MCTDFMN(backbone=backbone, test_transduction_steps=test_ts_steps,
-                    train_transduction_steps=train_ts_steps).to(device)
+                    train_transduction_steps=train_ts_steps, train_classes=dataset_classes,
+                    all_global_prototypes=all_global_prototypes).to(device)
 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, nesterov=True, weight_decay=0.0005, momentum=0.9)
     scheduler = LambdaLR(optimizer, lr_lambda=lr_schedule)
 
-    base_sampler = FSLEpisodeSampler(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
-                                     batch_size=batch_size)
+    base_sampler = FSLEpisodeSamplerGlobalLabels(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
+                                                 batch_size=batch_size)
     val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=batch_size)
 
     loss_plotter = PlotterWindow(interval=1000)
     accuracy_plotter = PlotterWindow(interval=1000)
 
     loss_plotter.new_line('Loss')
+    loss_plotter.new_line('Dense Loss')
+    loss_plotter.new_line('Instance Loss')
     accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
 
     losses = []
+    losses_d = []
+    losses_i = []
     acc_train = []
     acc_val = []
     val_iters = []
@@ -235,13 +272,15 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     for iteration in range(n_iterations):
         model.train()
 
-        support_set, batch = base_sampler.sample()
+        support_set, batch, global_classes_mapping = base_sampler.sample()
         query_set, query_labels = batch
+        # print(global_classes_mapping)
         query_set = query_set.to(device)
         query_labels = query_labels.to(device)
 
         optimizer.zero_grad()
-        output, loss = model.forward_with_loss(support_set, query_set, query_labels)
+        output, loss, loss_i, loss_d = model.forward_with_loss(support_set, query_set, query_labels,
+                                                               global_classes_mapping)
         # output = model.forward(support_set, query_set)
         # loss = loss_fn(output, query_labels)
         loss.backward()
@@ -253,9 +292,13 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
 
         loss_plotter.add_point('Loss', iteration, loss.item())
+        loss_plotter.add_point('Dense Loss', iteration, loss_d.item())
+        loss_plotter.add_point('Instance Loss', iteration, loss_i.item())
         accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
         losses.append(loss.item())
+        losses_i.append(loss_i.item())
+        losses_d.append(loss_d.item())
         acc_train.append(cur_accuracy)
 
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
@@ -311,6 +354,8 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
 
     plt.figure(figsize=(20, 20))
     plt.plot(iters, losses, label="Loss")
+    plt.plot(iters, losses_d, label="Dense Loss")
+    plt.plot(iters, losses_i, label="Instance Loss")
     plt.legend()
     plt.savefig(os.path.join(session.data['output_dir'], "loss_plot.png"))
 
@@ -328,25 +373,32 @@ if __name__ == '__main__':
     DATASET_NAME = 'miniImageNet'
     BASE_CLASSES = 80
     AUGMENT_PROB = 1.0
-    ITERATIONS = 60000
+    ITERATIONS = 50000
     BATCH_SIZE = 16
     N_WAY = 5
     EVAL_PERIOD = 1000
-    RECORD = 40
+    RECORD = 50
+    ALL_GLOBAL_PROTOTYPES = True
+    IMAGE_SIZE = 84
+    BACKBONE = 'resnet12-np-o'
 
     # N_SHOT = 5
 
     print("Preparations for training...")
-    dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB)
+    dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
     base_subdataset, val_subdataset = dataset.subdataset.extract_classes(BASE_CLASSES)
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
-    for N_SHOT in (5, 1):
+    for N_SHOT in (1, 5):
         train_mctdfmn(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
                       n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
                       eval_period=EVAL_PERIOD,
                       record=RECORD,
                       augment=AUGMENT_PROB,
                       dataset=DATASET_NAME,
-                      base_classes=BASE_CLASSES)
+                      base_classes=BASE_CLASSES,
+                      dataset_classes=dataset.CLASSES,
+                      all_global_prototypes=ALL_GLOBAL_PROTOTYPES,
+                      image_size=IMAGE_SIZE,
+                      backbone_name=BACKBONE)
