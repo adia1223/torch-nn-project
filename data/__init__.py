@@ -146,6 +146,29 @@ class LabeledSubdataset(Dataset):
             labels.append(label)
         return torch.stack(items), torch.tensor(labels)
 
+    def balanced_batch(self, per_class):
+        classes = {}
+        for i in self.indices:
+            label = self.base_dataset.get_label(i)
+            if label not in classes:
+                classes[label] = [i]
+            else:
+                classes[label].append(i)
+
+        indices = []
+
+        for label in classes:
+            class_indices = random.sample(classes[label], per_class)
+            indices += class_indices
+
+        items = []
+        labels = []
+        for i in indices:
+            item, label, _ = self.base_dataset[i]
+            items.append(item)
+            labels.append(label)
+        return torch.stack(items), torch.tensor(labels)
+
 
 class LabeledDataset(Dataset):
     def __init__(self, items, labels, test):

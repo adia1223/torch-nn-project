@@ -16,6 +16,10 @@ from sessions import Session
 from utils import pretty_time, remove_dim, inverse_mapping
 from visualization.plots import PlotterWindow
 
+MAX_BATCH_SIZE = 2000
+
+EPOCHS_MULTIPLIER = 1
+
 
 class ScaleModule(nn.Module):
     def __init__(self, in_features, map_size):
@@ -40,9 +44,9 @@ class ScaleModule(nn.Module):
 
 
 def lr_schedule(iter: int):
-    if iter >= 35000:
+    if iter >= 35000 * EPOCHS_MULTIPLIER:
         return 0.0012
-    elif iter >= 25000:
+    elif iter >= 25000 * EPOCHS_MULTIPLIER:
         return 0.006
     else:
         return 0.1
@@ -91,7 +95,16 @@ class MCTDFMN(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def extract_features(self, batch: torch.Tensor) -> torch.Tensor:
-        x = self.feature_extractor(batch)
+        # print(batch.size())
+        minibatches = batch.split(split_size=MAX_BATCH_SIZE)
+        # print(minibatches)
+        xs = []
+        for minibatch in minibatches:
+            xs.append(self.feature_extractor(minibatch))
+            # print(len(xs))
+            # print(xs[-1].size())
+        x = torch.cat(xs)
+        # print(x.size())
         return x
 
     def build_prototypes(self, support_set: torch.Tensor, query_set: torch.Tensor):
@@ -203,10 +216,12 @@ class MCTDFMN(nn.Module):
 
 def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
                   n_iterations: int, batch_size: int, eval_period: int,
+                  val_batch_size: int,
                   dataset_classes: int,
                   image_size: int,
+                  balanced_batches: bool,
                   train_n_way=15,
-                  backbone_name='resnet12-np', lr=0.01,
+                  backbone_name='resnet12-np', lr=0.1,
                   train_ts_steps=1,
                   test_ts_steps=10,
                   all_global_prototypes=True,
@@ -220,6 +235,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         # "dataset": dataset_name,
         # "optimizer": optimizer_name,
         "batch_size": batch_size,
+        "val_batch_size": val_batch_size,
         "n_shot": n_shot,
         "n_way": n_way,
         "train_n_way": train_n_way,
@@ -228,6 +244,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         "optimizer": 'sgd',
         "all_global_prototypes": all_global_prototypes,
         "image_size": image_size,
+        "balanced_batches": balanced_batches,
     }
 
     session_info.update(kwargs)
@@ -241,8 +258,9 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     scheduler = LambdaLR(optimizer, lr_lambda=lr_schedule)
 
     base_sampler = FSLEpisodeSamplerGlobalLabels(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
-                                                 batch_size=batch_size)
-    val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=batch_size)
+                                                 batch_size=batch_size, balanced=balanced_batches)
+    val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=val_batch_size,
+                                    balanced=balanced_batches)
 
     loss_plotter = PlotterWindow(interval=1000)
     accuracy_plotter = PlotterWindow(interval=1000)
@@ -273,7 +291,9 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         model.train()
 
         support_set, batch, global_classes_mapping = base_sampler.sample()
+        # print(support_set.size())
         query_set, query_labels = batch
+        # print(query_set.size())
         # print(global_classes_mapping)
         query_set = query_set.to(device)
         query_labels = query_labels.to(device)
@@ -373,14 +393,16 @@ if __name__ == '__main__':
     DATASET_NAME = 'miniImageNet'
     BASE_CLASSES = 80
     AUGMENT_PROB = 1.0
-    ITERATIONS = 50000
-    BATCH_SIZE = 16
+    ITERATIONS = 50000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
     RECORD = 50
     ALL_GLOBAL_PROTOTYPES = True
     IMAGE_SIZE = 84
-    BACKBONE = 'resnet12-np-o'
+    BACKBONE = 'conv64-np-o'
+    BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
+    VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
+    BALANCED_BATCHES = True
 
     # N_SHOT = 5
 
@@ -401,4 +423,6 @@ if __name__ == '__main__':
                       dataset_classes=dataset.CLASSES,
                       all_global_prototypes=ALL_GLOBAL_PROTOTYPES,
                       image_size=IMAGE_SIZE,
-                      backbone_name=BACKBONE)
+                      backbone_name=BACKBONE,
+                      balanced_batches=BALANCED_BATCHES,
+                      val_batch_size=VAL_BATCH_SIZE)

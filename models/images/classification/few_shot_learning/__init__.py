@@ -7,7 +7,8 @@ from torch.utils.data.dataset import Dataset
 from torchvision import models
 
 from data import LabeledSubdataset
-from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling, ResNet12NoPoolingOriginal
+from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling, ResNet12NoPoolingOriginal, \
+    ConvNet256Original, ConvNet64Original
 from utils import remove_dim, pretty_time
 
 
@@ -81,17 +82,20 @@ FEATURE_EXTRACTORS = {
     'resnet18-np': lambda: ResNet18NoPooling(pretrained=False),
     'resnet12-np': lambda: ResNet12NoPooling(),
     'resnet12-np-o': lambda: ResNet12NoPoolingOriginal(),
+    'conv256-np-o': lambda: ConvNet256Original(),
+    'conv64-np-o': lambda: ConvNet64Original(),
 }
 
 
 class FSLEpisodeSampler(Dataset):
-    def __init__(self, subdataset: LabeledSubdataset, n_way: int, n_shot: int, batch_size: int,
+    def __init__(self, subdataset: LabeledSubdataset, n_way: int, n_shot: int, batch_size: int, balanced: bool,
                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
         self.subdataset = subdataset
         self.n_way = n_way
         self.n_shot = n_shot
         self.batch_size = batch_size
         self.device = device
+        self.balanced = balanced
 
     def sample(self):
         cur_subdataset, _ = self.subdataset.extract_classes(self.n_way)
@@ -110,8 +114,11 @@ class FSLEpisodeSampler(Dataset):
         for i in range(len(support_subdataset)):
             item, label, _ = support_subdataset[i]
             support_set[classes_mapping[label]].append(item.to(self.device))
+        if not self.balanced:
+            batch = cur_subdataset.random_batch(self.batch_size)
+        else:
+            batch = cur_subdataset.balanced_batch(self.batch_size)
 
-        batch = cur_subdataset.random_batch(self.batch_size)
         for i in range(len(batch[1])):
             batch[1][i] = classes_mapping[batch[1][i].item()]
 
@@ -140,8 +147,11 @@ class FSLEpisodeSamplerGlobalLabels(FSLEpisodeSampler):
         for i in range(len(support_subdataset)):
             item, label, _ = support_subdataset[i]
             support_set[classes_mapping[label]].append(item.to(self.device))
-
-        batch = list(cur_subdataset.random_batch(self.batch_size))
+        if not self.balanced:
+            batch = list(cur_subdataset.random_batch(self.batch_size))
+        else:
+            batch = list(cur_subdataset.balanced_batch(self.batch_size))
+        # batch = list(cur_subdataset.random_batch(self.batch_size))
         # batch.append([-1] * len(batch[1]))
         for i in range(len(batch[1])):
             # batch[2][i] = batch[1][i].item()

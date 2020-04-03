@@ -27,13 +27,13 @@ class MiniImageNetDataset(data.LabeledDataset):
         resize_train = transforms.Compose(
             [
                 transforms.Resize(image_size),
-                transforms.RandomCrop(image_size),
+                transforms.CenterCrop(image_size),
             ]
         )
         resize_test = transforms.Compose(
             [
                 transforms.Resize(image_size),
-                transforms.RandomCrop(image_size),
+                transforms.CenterCrop(image_size),
             ]
         )
 

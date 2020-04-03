@@ -130,21 +130,21 @@ class ResNetBlock(nn.Module):
         identity = self.convr(x)
         identity = self.bnr(identity)
 
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
 
-        out = self.conv3(out)
-        out = self.bn3(out)
+        x = self.conv3(x)
+        x = self.bn3(x)
 
-        out += identity
-        out = self.relu(out)
-        out = self.maxpool(out)
-        return out
+        x += identity
+        x = self.relu(x)
+        x = self.maxpool(x)
+        return x
 
 
 class ResNet12NoPoolingOriginal(NoPoolingBackbone):
@@ -202,3 +202,93 @@ class ResNet12NoPoolingOriginal(NoPoolingBackbone):
 
     def output_features(self):
         return 512
+
+
+def conv_block(in_channels, out_channels):
+    bn = nn.BatchNorm2d(out_channels)
+    nn.init.uniform_(bn.weight)  # for pytorch 1.2 or later
+    return nn.Sequential(
+        nn.Conv2d(in_channels, out_channels, 3, padding=1),
+        bn,
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+    )
+
+
+class ConvNet256Original(NoPoolingBackbone):
+
+    def __init__(self, with_drop=False):
+        super().__init__()
+
+        self.drop_layer = with_drop
+
+        self.hidden = 64
+        self.layer1 = conv_block(3, self.hidden)
+        self.layer2 = conv_block(self.hidden, int(1.5 * self.hidden))
+        self.layer3 = conv_block(int(1.5 * self.hidden), 2 * self.hidden)
+        self.layer4 = conv_block(2 * self.hidden, 4 * self.hidden)
+
+        # self.weight = nn.Linear(4 * self.hidden, 64)
+        # nn.init.xavier_uniform_(self.weight.weight)
+        #
+        # self.conv1_ls = nn.Conv2d(in_channels=4 * self.hidden, out_channels=1, kernel_size=3)
+        # self.bn1_ls = nn.BatchNorm2d(1, eps=2e-5)
+        # self.relu = nn.ReLU(inplace=True)
+        # self.fc1_ls = nn.Linear(16, 1)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        # print(x.size())
+        return x
+
+    def output_featmap_size(self):
+        return 6
+
+    def output_features(self):
+        return 256
+
+
+class ConvNet64Original(NoPoolingBackbone):
+
+    def __init__(self, with_drop=False, x_dim=3, hid_dim=64, z_dim=64):
+        super().__init__()
+
+        self.drop_layer = with_drop
+
+        self.layer1 = conv_block(x_dim, hid_dim)
+        self.layer2 = conv_block(hid_dim, hid_dim)
+        self.layer3 = conv_block(hid_dim, z_dim)
+        self.layer4 = conv_block(z_dim, z_dim)
+
+        # # global weight
+        # self.weight = nn.Linear(z_dim, 64)
+        # nn.init.xavier_uniform_(self.weight.weight)
+        #
+        # # length scale parameters
+        # self.conv1_ls = nn.Conv2d(in_channels=z_dim, out_channels=1, kernel_size=3)
+        # self.bn1_ls = nn.BatchNorm2d(1, eps=2e-5)
+        # self.relu = nn.ReLU(inplace=True)
+        # self.fc1_ls = nn.Linear(16, 1)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        # print(x.size())
+        return x
+
+    def output_featmap_size(self):
+        return 6
+
+    def output_features(self):
+        return 64
+
+# if __name__ == '__main__':
+#     orig = ResNet12NoPoolingOriginal()
+#     my = ResNet12NoPooling()
+#     print(orig)
+#     print(my)
