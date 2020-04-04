@@ -206,7 +206,7 @@ class MCTDFMN(nn.Module):
         # print(expanded_global_prototypes.shape)
         d_distances = self.get_l2_distances(expanded_query_set, expanded_global_prototypes)
         # print(d_distances.shape)
-        loss_d = self.loss_fn(d_distances, cur_labels) * self.featmap_size2
+        loss_d = self.loss_fn(d_distances, cur_labels)  # * self.featmap_size2
         # print(loss_d.item(), loss_i.item())
 
         res_loss = (0.2 * loss_i) + loss_d
@@ -400,7 +400,7 @@ if __name__ == '__main__':
     ALL_GLOBAL_PROTOTYPES = True
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
-    BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
+    BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
     VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
     BALANCED_BATCHES = True
 
