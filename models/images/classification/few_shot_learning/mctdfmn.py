@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from typing import Tuple
 
@@ -16,7 +17,7 @@ from sessions import Session
 from utils import pretty_time, remove_dim, inverse_mapping
 from visualization.plots import PlotterWindow
 
-MAX_BATCH_SIZE = 2000
+MAX_BATCH_SIZE = 20000
 
 EPOCHS_MULTIPLIER = 1
 
@@ -44,9 +45,9 @@ class ScaleModule(nn.Module):
 
 
 def lr_schedule(iter: int):
-    if iter >= 35000 * EPOCHS_MULTIPLIER:
+    if iter >= 30000 * EPOCHS_MULTIPLIER:
         return 0.0012
-    elif iter >= 25000 * EPOCHS_MULTIPLIER:
+    elif iter >= 20000 * EPOCHS_MULTIPLIER:
         return 0.006
     else:
         return 0.1
@@ -389,11 +390,13 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
 
 
 if __name__ == '__main__':
+    torch.random.manual_seed(2002)
+    random.seed(2002)
 
     DATASET_NAME = 'miniImageNet'
     BASE_CLASSES = 80
     AUGMENT_PROB = 1.0
-    ITERATIONS = 50000 * EPOCHS_MULTIPLIER
+    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
     RECORD = 50
@@ -412,7 +415,7 @@ if __name__ == '__main__':
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
-    for N_SHOT in (1, 5):
+    for N_SHOT in (1,):
         train_mctdfmn(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
                       n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
                       eval_period=EVAL_PERIOD,
