@@ -394,7 +394,7 @@ if __name__ == '__main__':
     random.seed(2002)
 
     DATASET_NAME = 'cub'
-    BASE_CLASSES = 80
+    BASE_CLASSES = 150
     AUGMENT_PROB = 1.0
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
