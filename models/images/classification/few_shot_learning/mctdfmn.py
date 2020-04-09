@@ -400,7 +400,7 @@ if __name__ == '__main__':
     N_WAY = 5
     EVAL_PERIOD = 1000
     RECORD = 50
-    ALL_GLOBAL_PROTOTYPES = True
+    ALL_GLOBAL_PROTOTYPES = False
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
     BATCH_SIZE = 8 // EPOCHS_MULTIPLIER

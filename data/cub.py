@@ -161,6 +161,5 @@ def save_as_tensors(source=r'C:\datasets\CUB\images\images', target=r'C:\dataset
                 torch.save(image_tensor, target_file)
         print(class_label, i)
 
-
-if __name__ == '__main__':
-    save_as_tensors()
+# if __name__ == '__main__':
+#     save_as_tensors()
