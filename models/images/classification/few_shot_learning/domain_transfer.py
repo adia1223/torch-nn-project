@@ -35,14 +35,17 @@ def change_dataset(model_folder: str, dataset_name: str, record: int):
 
 
 if __name__ == '__main__':
-    # path = "D:\\petrtsv\\projects\\ds\\pytorch-sessions\\FSL_MCTDFMN\\FSL_MCTDFMN_055670-43-55-20-05-04-2020"
-    # paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_637276-53-47-18-06-04-2020',  # 1-shot
-    #          r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_055670-43-55-20-05-04-2020',  # 5-shot
+    # paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_637276-53-47-18-06-04-2020',
+    #          # 1-shot miniImageNet
+    #          r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_055670-43-55-20-05-04-2020',
+    #          # 5-shot miniImageNet
     #          ]
 
     paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\ProtoNet\ProtoNet_661818-03-58-00-10-04-2020',
-             r'D:\petrtsv\projects\ds\pytorch-sessions\ProtoNet\ProtoNet_312646-55-13-05-10-04-2020']
-
+             # 1-shot miniImageNet
+             r'D:\petrtsv\projects\ds\pytorch-sessions\ProtoNet\ProtoNet_312646-55-13-05-10-04-2020'
+             # 5-shot miniImageNet
+             ]
     DATASET_NAME = 'cub'
     RECORD = 140
 
