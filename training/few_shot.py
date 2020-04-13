@@ -9,7 +9,7 @@ from torchvision import models
 
 from data import LABELED_DATASETS, LabeledSubdataset
 from history.index import save_record
-from models.images.classification.backbones import ResNet18NoPooling
+from models.images.classification.backbones import ResNet18NoFlattening
 from models.images.classification.meta_learning_few_shot import MODELS, FewShotLearningTask, BaselineClassifier, \
     SupportSetMeanFeaturesModel
 from training import pretty_time
@@ -40,7 +40,7 @@ OPTIMIZERS = {
 FEATURE_EXTRACTORS = {
     'resnet18': lambda: models.resnet18(pretrained=False),
     'googlenet': lambda: models.googlenet(pretrained=False),
-    'resnet18-np': lambda: ResNet18NoPooling(pretrained=False),
+    'resnet18-np': lambda: ResNet18NoFlattening(pretrained=False),
 }
 
 

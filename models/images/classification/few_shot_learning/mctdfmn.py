@@ -10,7 +10,7 @@ from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
 
 from data import LABELED_DATASETS, LabeledSubdataset
-from models.images.classification.backbones import NoPoolingBackbone
+from models.images.classification.backbones import NoFlatteningBackbone
 from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels
 from sessions import Session
@@ -54,7 +54,7 @@ def lr_schedule(iter: int):
 
 
 class MCTDFMN(nn.Module):
-    def __init__(self, train_classes: int, backbone: NoPoolingBackbone, train_transduction_steps=1,
+    def __init__(self, train_classes: int, backbone: NoFlatteningBackbone, train_transduction_steps=1,
                  test_transduction_steps=10, lmb=0.2, all_global_prototypes=True,
                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
         super(MCTDFMN, self).__init__()

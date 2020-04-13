@@ -1,6 +1,7 @@
 import os
 import random
 import time
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import torch
@@ -19,10 +20,13 @@ MAX_BATCH_SIZE = 20000
 EPOCHS_MULTIPLIER = 1
 
 
-class ProtoNet(nn.Module):
+class ProtoNet_MHLNBS(nn.Module):
     def __init__(self, backbone: NoFlatteningBackbone):
-        super(ProtoNet, self).__init__()
+        super(ProtoNet_MHLNBS, self).__init__()
         self.feature_extractor = backbone
+
+        self.latent_features = backbone.output_features()
+        self.latent_featmap_size = backbone.output_featmap_size()
 
         self.loss_fn = nn.CrossEntropyLoss()
 
@@ -49,7 +53,8 @@ class ProtoNet(nn.Module):
         return x
 
     def get_prototypes(self, support_set: torch.Tensor):
-        return torch.mean(support_set, dim=1)
+        vars = torch.var(support_set, dim=1)
+        return torch.mean(support_set, dim=1), vars
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         n_classes = support_set.size(0)
@@ -61,29 +66,41 @@ class ProtoNet(nn.Module):
 
         query_set_features = self.extract_features(query_set)
 
-        class_prototypes = self.get_prototypes(support_set_features)
+        class_prototypes, class_vars = self.get_prototypes(support_set_features)
 
         query_set_features_prepared = query_set_features.unsqueeze(1).repeat_interleave(repeats=n_classes,
                                                                                         dim=1)
 
-        distance = torch.sum((class_prototypes.unsqueeze(0).repeat_interleave(repeats=query_set_size,
-                                                                              dim=0) -
-                              query_set_features_prepared).pow(2), dim=2)
+        diff = (class_prototypes.unsqueeze(0).repeat_interleave(repeats=query_set_size,
+                                                                dim=0) -
+                query_set_features_prepared).pow(2)
+        class_vars = class_vars.unsqueeze(0).repeat_interleave(repeats=query_set_size,
+                                                               dim=0) + 1
+
+        distance = torch.sum(diff / class_vars, dim=2)
 
         return -distance
 
+    def forward_with_loss(self, support_set: torch.Tensor, query_set: torch.Tensor, labels: torch.Tensor) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor]:
+        output = self(support_set, query_set)
+        loss_i = self.loss_fn(output, labels)
 
-def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
-                   n_iterations: int, batch_size: int, eval_period: int,
-                   val_batch_size: int,
-                   image_size: int,
-                   balanced_batches: bool,
-                   train_n_way=15,
-                   backbone_name='resnet12-np-o',
-                   device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
+        loss = loss_i
+        return output, loss, loss_i
+
+
+def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
+                         n_iterations: int, batch_size: int, eval_period: int,
+                         val_batch_size: int,
+                         image_size: int,
+                         balanced_batches: bool,
+                         train_n_way=15,
+                         backbone_name='resnet12-np-o',
+                         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
     session_info = {
         "task": "few-shot learning",
-        "model": "ProtoNet",
+        "model": "ProtoNetMHLNBS",
         "feature_extractor": backbone_name,
         "n_iterations": n_iterations,
         "eval_period": eval_period,
@@ -102,7 +119,7 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
     session_info.update(kwargs)
 
     backbone = FEATURE_EXTRACTORS[backbone_name]()
-    model = ProtoNet(backbone=backbone).to(device)
+    model = ProtoNet_MHLNBS(backbone=backbone).to(device)
 
     optimizer = OPTIMIZERS['adam'](model=model)
 
@@ -115,10 +132,13 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
     accuracy_plotter = PlotterWindow(interval=1000)
 
     loss_plotter.new_line('Loss')
+    loss_plotter.new_line('Loss Instance')
+    loss_plotter.new_line('Loss Autoencoder')
     accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
 
     losses = []
+    losses_i = []
     acc_train = []
     acc_val = []
     val_iters = []
@@ -144,8 +164,7 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
         query_labels = query_labels.to(device)
 
         optimizer.zero_grad()
-        output = model(support_set, query_set)
-        loss = model.loss_fn(output, query_labels)
+        output, loss, loss_i = model.forward_with_loss(support_set, query_set, query_labels)
         loss.backward()
         optimizer.step()
 
@@ -154,9 +173,11 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
         cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
 
         loss_plotter.add_point('Loss', iteration, loss.item())
+        loss_plotter.add_point('Loss Instance', iteration, loss_i.item())
         accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
         losses.append(loss.item())
+        losses_i.append(loss_i.item())
         acc_train.append(cur_accuracy)
 
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
@@ -202,13 +223,14 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
     session_info['execution_time'] = training_time
 
     session = Session()
-    session.build(name="ProtoNet", comment=r"ProtoNet Few-Shot Learning",
+    session.build(name="ProtoNetMHLNBS", comment=r"ProtoNet with Mahalanobis distance Few-Shot Learning",
                   **session_info)
     torch.save(model, os.path.join(session.data['output_dir'], "trained_model_state_dict.tar"))
     iters = list(range(1, n_iterations + 1))
 
     plt.figure(figsize=(20, 20))
     plt.plot(iters, losses, label="Loss")
+    plt.plot(iters, losses_i, label="Loss Instance")
     plt.legend()
     plt.savefig(os.path.join(session.data['output_dir'], "loss_plot.png"))
 
@@ -225,15 +247,15 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'cub'
-    BASE_CLASSES = 150
+    DATASET_NAME = 'miniImageNet'
+    BASE_CLASSES = 80
     AUGMENT_PROB = 1.0
-    ITERATIONS = 20000 * EPOCHS_MULTIPLIER
+    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
-    RECORD = 210
+    RECORD = 200
     IMAGE_SIZE = 84
-    BACKBONE = 'conv64-p-o'
+    BACKBONE = 'conv64-np-o'
     # BACKBONE = 'resnet18'
     BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
     VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
@@ -248,15 +270,15 @@ if __name__ == '__main__':
     val_subdataset.set_test(True)
 
     for N_SHOT in (5,):
-        train_protonet(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
-                       n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
-                       eval_period=EVAL_PERIOD,
-                       record=RECORD,
-                       augment=AUGMENT_PROB,
-                       dataset=DATASET_NAME,
-                       base_classes=BASE_CLASSES,
-                       dataset_classes=dataset.CLASSES,
-                       image_size=IMAGE_SIZE,
-                       backbone_name=BACKBONE,
-                       balanced_batches=BALANCED_BATCHES,
-                       val_batch_size=VAL_BATCH_SIZE)
+        train_protonetmhlnbs(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
+                             n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
+                             eval_period=EVAL_PERIOD,
+                             record=RECORD,
+                             augment=AUGMENT_PROB,
+                             dataset=DATASET_NAME,
+                             base_classes=BASE_CLASSES,
+                             dataset_classes=dataset.CLASSES,
+                             image_size=IMAGE_SIZE,
+                             backbone_name=BACKBONE,
+                             balanced_batches=BALANCED_BATCHES,
+                             val_batch_size=VAL_BATCH_SIZE)

@@ -3,9 +3,9 @@ from torch import nn
 from torchvision.models.resnet import BasicBlock
 
 
-class NoPoolingBackbone(nn.Module):
+class NoFlatteningBackbone(nn.Module):
     def __init__(self):
-        super(NoPoolingBackbone, self).__init__()
+        super(NoFlatteningBackbone, self).__init__()
 
     def forward(self, x):
         raise NotImplementedError
@@ -17,10 +17,10 @@ class NoPoolingBackbone(nn.Module):
         raise NotImplementedError
 
 
-class ResNet18NoPooling(NoPoolingBackbone):
+class ResNet18NoFlattening(NoFlatteningBackbone):
 
     def __init__(self, pretrained=False, drop_ratio=0.1):
-        super(ResNet18NoPooling, self).__init__()
+        super(ResNet18NoFlattening, self).__init__()
         self.backbone = torchvision.models.resnet18(pretrained=pretrained)
         self.dropout = nn.Dropout(drop_ratio)
 
@@ -63,9 +63,9 @@ class ResNet18NoPooling(NoPoolingBackbone):
 # class BaseResNet18
 
 
-class ResNet12NoPooling(NoPoolingBackbone):
+class ResNet12NoFlattening(NoFlatteningBackbone):
     def __init__(self, drop_ratio=0.1):
-        super(ResNet12NoPooling, self).__init__()
+        super(ResNet12NoFlattening, self).__init__()
         self.backbone = torchvision.models.ResNet(BasicBlock, [1, 1, 1, 1])
         self.dropout = nn.Dropout(drop_ratio)
 
@@ -147,9 +147,9 @@ class ResNetBlock(nn.Module):
         return x
 
 
-class ResNet12NoPoolingOriginal(NoPoolingBackbone):
+class ResNet12NoFlatteningOriginal(NoFlatteningBackbone):
     def __init__(self, drop_ratio=0.1, with_drop=True):
-        super(ResNet12NoPoolingOriginal, self).__init__()
+        super(ResNet12NoFlatteningOriginal, self).__init__()
 
         self.drop_layers = with_drop
         self.inplanes = 3
@@ -215,7 +215,7 @@ def conv_block(in_channels, out_channels):
     )
 
 
-class ConvNet256Original(NoPoolingBackbone):
+class ConvNet256Original(NoFlatteningBackbone):
 
     def __init__(self, with_drop=False):
         super().__init__()
@@ -251,7 +251,7 @@ class ConvNet256Original(NoPoolingBackbone):
         return 256
 
 
-class ConvNet64Original(NoPoolingBackbone):
+class ConvNet64Original(NoFlatteningBackbone):
 
     def __init__(self, with_drop=False, x_dim=3, hid_dim=64, z_dim=64):
         super().__init__()
@@ -287,8 +287,46 @@ class ConvNet64Original(NoPoolingBackbone):
     def output_features(self):
         return 64
 
+
+class ConvNet64PoolingOriginal(NoFlatteningBackbone):
+
+    def __init__(self, with_drop=False, x_dim=3, hid_dim=64, z_dim=64):
+        super().__init__()
+
+        self.drop_layer = with_drop
+
+        self.layer1 = conv_block(x_dim, hid_dim)
+        self.layer2 = conv_block(hid_dim, hid_dim)
+        self.layer3 = conv_block(hid_dim, z_dim)
+        self.layer4 = conv_block(z_dim, z_dim)
+        self.pooling = nn.AvgPool2d(6)
+
+        # # global weight
+        # self.weight = nn.Linear(z_dim, 64)
+        # nn.init.xavier_uniform_(self.weight.weight)
+        #
+        # # length scale parameters
+        # self.conv1_ls = nn.Conv2d(in_channels=z_dim, out_channels=1, kernel_size=3)
+        # self.bn1_ls = nn.BatchNorm2d(1, eps=2e-5)
+        # self.relu = nn.ReLU(inplace=True)
+        # self.fc1_ls = nn.Linear(16, 1)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.pooling(x)
+        return x
+
+    def output_featmap_size(self):
+        return 1
+
+    def output_features(self):
+        return 64
+
 # if __name__ == '__main__':
-#     orig = ResNet12NoPoolingOriginal()
-#     my = ResNet12NoPooling()
+#     orig = ConvNet64Original()
+#     # my = ResNet12NoPooling()
 #     print(orig)
-#     print(my)
+#     # print(my)

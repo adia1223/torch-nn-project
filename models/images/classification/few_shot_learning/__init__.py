@@ -7,8 +7,9 @@ from torch.utils.data.dataset import Dataset
 from torchvision import models
 
 from data import LabeledSubdataset
-from models.images.classification.backbones import ResNet18NoPooling, ResNet12NoPooling, ResNet12NoPoolingOriginal, \
-    ConvNet256Original, ConvNet64Original
+from models.images.classification.backbones import ResNet18NoFlattening, ResNet12NoFlattening, \
+    ResNet12NoFlatteningOriginal, \
+    ConvNet256Original, ConvNet64Original, ConvNet64PoolingOriginal
 from utils import remove_dim, pretty_time
 
 
@@ -79,11 +80,12 @@ OPTIMIZERS = {
 FEATURE_EXTRACTORS = {
     'resnet18': lambda: models.resnet18(pretrained=False),
     'googlenet': lambda: models.googlenet(pretrained=False),
-    'resnet18-np': lambda: ResNet18NoPooling(pretrained=False),
-    'resnet12-np': lambda: ResNet12NoPooling(),
-    'resnet12-np-o': lambda: ResNet12NoPoolingOriginal(),
+    'resnet18-np': lambda: ResNet18NoFlattening(pretrained=False),
+    'resnet12-np': lambda: ResNet12NoFlattening(),
+    'resnet12-np-o': lambda: ResNet12NoFlatteningOriginal(),
     'conv256-np-o': lambda: ConvNet256Original(),
     'conv64-np-o': lambda: ConvNet64Original(),
+    'conv64-p-o': lambda: ConvNet64PoolingOriginal(),
 }
 
 
