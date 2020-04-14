@@ -10,7 +10,7 @@ from torch import nn
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoFlatteningBackbone
 from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
-    FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels, OPTIMIZERS
+    FEATURE_EXTRACTORS, OPTIMIZERS
 from sessions import Session
 from utils import pretty_time, remove_dim
 from visualization.plots import PlotterWindow
@@ -54,7 +54,8 @@ class ProtoNet_MHLNBS(nn.Module):
 
     def get_prototypes(self, support_set: torch.Tensor):
         vars = torch.var(support_set, dim=1)
-        return torch.mean(support_set, dim=1), vars
+        # print(torch.mean(vars))
+        return torch.mean(support_set, dim=1), vars * 10
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         n_classes = support_set.size(0)
@@ -123,8 +124,8 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
 
     optimizer = OPTIMIZERS['adam'](model=model)
 
-    base_sampler = FSLEpisodeSamplerGlobalLabels(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
-                                                 batch_size=batch_size, balanced=balanced_batches)
+    base_sampler = FSLEpisodeSampler(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
+                                     batch_size=batch_size, balanced=balanced_batches)
     val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=val_batch_size,
                                     balanced=balanced_batches)
 
@@ -133,7 +134,6 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
 
     loss_plotter.new_line('Loss')
     loss_plotter.new_line('Loss Instance')
-    loss_plotter.new_line('Loss Autoencoder')
     accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
 
@@ -155,7 +155,7 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
     for iteration in range(n_iterations):
         model.train()
 
-        support_set, batch, global_classes_mapping = base_sampler.sample()
+        support_set, batch = base_sampler.sample()
         # print(support_set.size())
         query_set, query_labels = batch
         # print(query_set.size())
@@ -253,7 +253,7 @@ if __name__ == '__main__':
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
-    RECORD = 200
+    RECORD = 220
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
     # BACKBONE = 'resnet18'
