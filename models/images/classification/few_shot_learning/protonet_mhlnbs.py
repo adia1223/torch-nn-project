@@ -53,9 +53,8 @@ class ProtoNet_MHLNBS(nn.Module):
         return x
 
     def get_prototypes(self, support_set: torch.Tensor):
-        vars = torch.var(support_set, dim=1)
-        # print(torch.mean(vars))
-        return torch.mean(support_set, dim=1), vars * 10
+        vars = torch.std(support_set, dim=1)
+        return torch.mean(support_set, dim=1), vars * 5
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         n_classes = support_set.size(0)
@@ -255,7 +254,7 @@ if __name__ == '__main__':
     EVAL_PERIOD = 1000
     RECORD = 220
     IMAGE_SIZE = 84
-    BACKBONE = 'conv64-np-o'
+    BACKBONE = 'conv64-p-o'
     # BACKBONE = 'resnet18'
     BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
     VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER

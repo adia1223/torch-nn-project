@@ -225,10 +225,10 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'cub'
-    BASE_CLASSES = 150
+    DATASET_NAME = 'miniImageNet'
+    BASE_CLASSES = 80
     AUGMENT_PROB = 1.0
-    ITERATIONS = 20000 * EPOCHS_MULTIPLIER
+    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
     RECORD = 210

@@ -290,7 +290,7 @@ if __name__ == '__main__':
     EVAL_PERIOD = 1000
     RECORD = 200
     IMAGE_SIZE = 84
-    BACKBONE = 'conv64-np-o'
+    BACKBONE = 'conv64-p-o'
     # BACKBONE = 'resnet18'
     BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
     VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
