@@ -63,7 +63,8 @@ class ProtoNet_AE(nn.Module):
     def __init__(self, backbone: NoFlatteningBackbone):
         super(ProtoNet_AE, self).__init__()
         self.feature_extractor = backbone
-        self.decoder = ConvNetDecoder(input_dim=backbone.output_features())
+        self.decoder = ConvNetDecoder(input_dim=backbone.output_features(),
+                                      input_map_size=backbone.output_featmap_size())
 
         self.latent_features = backbone.output_features()
         self.latent_featmap_size = backbone.output_featmap_size()
