@@ -30,15 +30,27 @@ def decoder_block(input_dim: int, output_dim: int, padding=1, output_padding=1):
 
 
 class ConvNetDecoder(nn.Module):
-    def __init__(self, input_dim=64):
+    def __init__(self, input_dim=64, input_map_size=1):
         super(ConvNetDecoder, self).__init__()
-        self.input_dim = 64
+        self.input_dim = input_dim
+        self.input_map_size = input_map_size
+        self.map_size = 6
+
+        self.linear = nn.Linear(in_features=input_dim * (input_map_size ** 2),
+                                out_features=input_dim * (self.map_size ** 2))
+        self.relu = nn.ReLU()
+
         self.layer1 = decoder_block(input_dim, input_dim, output_padding=0)
         self.layer2 = decoder_block(input_dim, input_dim, output_padding=0)
         self.layer3 = decoder_block(input_dim, input_dim)
         self.layer4 = decoder_block(input_dim, 3)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
+        x = self.relu(x)
+        x = x.view(x.size(0), self.map_size, self.map_size)
+
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
