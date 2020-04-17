@@ -49,7 +49,7 @@ class ConvNetDecoder(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.linear(x)
         x = self.relu(x)
-        x = x.view(x.size(0), self.map_size, self.map_size)
+        x = x.view(x.size(0), self.input_dim, self.map_size, self.map_size)
 
         x = self.layer1(x)
         x = self.layer2(x)
