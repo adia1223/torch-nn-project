@@ -2,10 +2,14 @@ import os
 import random
 
 import pandas as pd
+import torch
 from PIL import Image
 from torchvision import transforms
 
 import data
+
+MEAN = (0.485, 0.456, 0.406)
+STD = (0.229, 0.224, 0.225)
 
 resize = transforms.Compose(
     [
@@ -102,3 +106,45 @@ class GTSRBDataset(data.LabeledDataset):
 
     def test(self):
         return self.test_subdataset
+
+
+def save_as_tensors(source='C:\\datasets\\mini-imagenet\\train', target=r'C:\datasets\mini-imagenet\train_tensors',
+                    image_size=84):
+    resize = transforms.Compose(
+        [
+            transforms.Resize(image_size),
+            transforms.CenterCrop(image_size),
+        ]
+    )
+
+    normalize = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=MEAN, std=STD)
+        ]
+    )
+
+    transform = transforms.Compose(
+        [
+            resize,
+            normalize
+        ]
+    )
+
+    os.makedirs(target, exist_ok=True)
+    for i, class_label in enumerate(os.listdir(source)):
+        cur_source = os.path.join(source, class_label)
+        cur_target = os.path.join(target, class_label)
+        os.makedirs(cur_target, exist_ok=True)
+        for image in os.listdir(cur_source):
+            source_image_file = os.path.join(cur_source, image)
+            target_file = os.path.join(cur_target, image.replace('.JPEG', '.pt'))
+            with open(source_image_file, 'rb') as f:
+                img = Image.open(f)
+                img = img.convert('RGB')
+                image_tensor = transform(img)
+                torch.save(image_tensor, target_file)
+        print(class_label, i)
+
+# if __name__ == '__main__':
+#     save_as_tensors()
