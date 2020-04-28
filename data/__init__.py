@@ -196,6 +196,8 @@ from data.cifar10 import CIFAR10Dataset, CIFAR100Dataset
 from data.gtsrb import GTSRBDataset
 from data.cub import CUBDataset
 from data.mini_imagenet import MiniImageNetDataset
+from data.google_landmarks import GoogleLandmarksDataset
+from data.taco import TacoDataset
 
 LABELED_DATASETS = {
     'cifar10': CIFAR10Dataset,
@@ -203,4 +205,6 @@ LABELED_DATASETS = {
     'gtsrb': GTSRBDataset,
     'cub': CUBDataset,
     'miniImageNet': MiniImageNetDataset,
+    'taco': TacoDataset,
+    'google-landmarks': GoogleLandmarksDataset,
 }

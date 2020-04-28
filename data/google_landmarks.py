@@ -129,7 +129,7 @@ def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train.c
                 torch.save(image_tensor, image_path)
 
                 done = True
-            except OSError:
+            except (OSError, AttributeError):
                 if attempts <= ATTEMPTS:
                     print("Error with url %s, delay for %d second(s)" % (url, SLEEP))
                     time.sleep(SLEEP)
