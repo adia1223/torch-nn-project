@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 import time
 from io import BytesIO
 from typing import Union
@@ -140,5 +141,16 @@ def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train.c
         if i % 50 == 0:
             print(i)
 
+
+def remove_small(threshold, root=r"C:\datasets\google-landmarks\train\image-tensors"):
+    for label in os.listdir(root):
+        path = os.path.join(root, label)
+        cnt = len(os.listdir(path))
+        if cnt < threshold:
+            print(label, cnt)
+            shutil.rmtree(path)
+            print("Deleted!")
+
 # if __name__ == '__main__':
-#     load_from_index()
+#     # load_from_index()
+#     # remove_small(10)

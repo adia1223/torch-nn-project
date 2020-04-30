@@ -90,6 +90,7 @@ class LabeledSubdataset(Dataset):
 
         for class_label in balanced_classes.keys():
             new_indices += balanced_classes[class_label]
+        # print(len(self.indices), len(new_indices), len(not_extracted_indices))
 
         return LabeledSubdataset(self.base_dataset, new_indices), LabeledSubdataset(self.base_dataset,
                                                                                     not_extracted_indices)
@@ -179,6 +180,7 @@ class LabeledSubdataset(Dataset):
         indices = []
 
         for label in classes:
+            # print('\t', len(classes[label]))
             class_indices = random.sample(classes[label], per_class)
             indices += class_indices
 

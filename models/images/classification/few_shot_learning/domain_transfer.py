@@ -1,6 +1,8 @@
 import json
 
+# noinspection PyUnresolvedReferences
 from models.images.classification.few_shot_learning.mctdfmn import *
+from models.images.classification.few_shot_learning.protonet import *
 
 
 def change_dataset(model_folder: str, dataset_name: str, record: int, val_batch_size: int = None):
@@ -46,8 +48,8 @@ if __name__ == '__main__':
              r'D:\petrtsv\projects\ds\pytorch-sessions\ProtoNet\ProtoNet_312646-55-13-05-10-04-2020'
              # 5-shot miniImageNet
              ]
-    DATASET_NAME = 'google-landmarks'
-    RECORD = 350
+    DATASET_NAME = 'taco'
+    RECORD = 390
 
     for path in paths:
         print(path)
