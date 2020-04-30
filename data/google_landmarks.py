@@ -140,6 +140,5 @@ def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train.c
         if i % 50 == 0:
             print(i)
 
-
-if __name__ == '__main__':
-    load_from_index()
+# if __name__ == '__main__':
+#     load_from_index()

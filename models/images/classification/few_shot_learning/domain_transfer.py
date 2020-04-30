@@ -1,9 +1,9 @@
 import json
 
-from models.images.classification.few_shot_learning.protonet import *
+from models.images.classification.few_shot_learning.mctdfmn import *
 
 
-def change_dataset(model_folder: str, dataset_name: str, record: int):
+def change_dataset(model_folder: str, dataset_name: str, record: int, val_batch_size: int = None):
     model_file = os.path.join(model_folder, 'output', 'trained_model_state_dict.tar')
     info_file = os.path.join(model_folder, 'output', 'info.json')
     with open(info_file) as fin:
@@ -14,7 +14,7 @@ def change_dataset(model_folder: str, dataset_name: str, record: int):
 
     dataset = LABELED_DATASETS[dataset_name](augment_prob=0, image_size=info['image_size']).subdataset
     sampler = FSLEpisodeSampler(subdataset=dataset, n_way=info['n_way'], n_shot=info['n_shot'],
-                                batch_size=info['val_batch_size'],
+                                batch_size=info['val_batch_size'] if val_batch_size is None else val_batch_size,
                                 balanced=info['balanced_batches'])
     info['dataset'] += '->' + dataset_name
     info['record'] = record
@@ -46,10 +46,10 @@ if __name__ == '__main__':
              r'D:\petrtsv\projects\ds\pytorch-sessions\ProtoNet\ProtoNet_312646-55-13-05-10-04-2020'
              # 5-shot miniImageNet
              ]
-    DATASET_NAME = 'cub'
-    RECORD = 140
+    DATASET_NAME = 'google-landmarks'
+    RECORD = 350
 
     for path in paths:
         print(path)
-        change_dataset(path, DATASET_NAME, RECORD)
+        change_dataset(path, DATASET_NAME, RECORD, val_batch_size=4)
         print()

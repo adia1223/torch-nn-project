@@ -73,6 +73,27 @@ class LabeledSubdataset(Dataset):
 
         return LabeledSubdataset(self.base_dataset, new_indices)
 
+    def extract_balanced(self, n_items):
+        random.shuffle(self.indices)
+
+        balanced_classes = {}
+        not_extracted_indices = []
+        for i in self.indices:
+            label = self.base_dataset.get_label(i)
+            if label not in balanced_classes:
+                balanced_classes[label] = [i]
+            elif len(balanced_classes[label]) < n_items:
+                balanced_classes[label].append(i)
+            else:
+                not_extracted_indices.append(i)
+        new_indices = []
+
+        for class_label in balanced_classes.keys():
+            new_indices += balanced_classes[class_label]
+
+        return LabeledSubdataset(self.base_dataset, new_indices), LabeledSubdataset(self.base_dataset,
+                                                                                    not_extracted_indices)
+
     def downscale(self, k):
         classes = {}
         for i in self.indices:

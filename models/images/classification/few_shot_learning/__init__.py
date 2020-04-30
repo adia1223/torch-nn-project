@@ -101,7 +101,7 @@ class FSLEpisodeSampler(Dataset):
 
     def sample(self):
         cur_subdataset, _ = self.subdataset.extract_classes(self.n_way)
-        support_subdataset = cur_subdataset.balance(self.n_shot)
+        support_subdataset, query_subdataset = cur_subdataset.extract_balanced(self.n_shot)
         classes_mapping = {}
 
         support_set_labels = support_subdataset.labels()
@@ -117,9 +117,9 @@ class FSLEpisodeSampler(Dataset):
             item, label, _ = support_subdataset[i]
             support_set[classes_mapping[label]].append(item.to(self.device))
         if not self.balanced:
-            batch = cur_subdataset.random_batch(self.batch_size)
+            batch = query_subdataset.random_batch(self.batch_size)
         else:
-            batch = cur_subdataset.balanced_batch(self.batch_size)
+            batch = query_subdataset.balanced_batch(self.batch_size)
 
         for i in range(len(batch[1])):
             batch[1][i] = classes_mapping[batch[1][i].item()]
@@ -134,7 +134,7 @@ class FSLEpisodeSampler(Dataset):
 class FSLEpisodeSamplerGlobalLabels(FSLEpisodeSampler):
     def sample(self):
         cur_subdataset, _ = self.subdataset.extract_classes(self.n_way)
-        support_subdataset = cur_subdataset.balance(self.n_shot)
+        support_subdataset, query_dataset = cur_subdataset.extract_balanced(self.n_shot)
         classes_mapping = {}
 
         support_set_labels = support_subdataset.labels()
@@ -150,9 +150,9 @@ class FSLEpisodeSamplerGlobalLabels(FSLEpisodeSampler):
             item, label, _ = support_subdataset[i]
             support_set[classes_mapping[label]].append(item.to(self.device))
         if not self.balanced:
-            batch = list(cur_subdataset.random_batch(self.batch_size))
+            batch = list(query_dataset.random_batch(self.batch_size))
         else:
-            batch = list(cur_subdataset.balanced_batch(self.batch_size))
+            batch = list(query_dataset.balanced_batch(self.batch_size))
         # batch = list(cur_subdataset.random_batch(self.batch_size))
         # batch.append([-1] * len(batch[1]))
         for i in range(len(batch[1])):
