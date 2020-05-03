@@ -1,3 +1,4 @@
+import random
 import time
 
 import torch
@@ -167,8 +168,33 @@ class FSLEpisodeSamplerGlobalLabels(FSLEpisodeSampler):
         return support_set, batch, classes_mapping
 
 
-def evaluate_solution(model: FewShotLearningSolution, validation_sampler: FSLEpisodeSampler,
-                      n_iterations=600, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+class TripletBatchSampler:
+    def __init__(self, subdataset: LabeledSubdataset, batch_size: int,
+                 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+        self.subdataset = subdataset
+        self.batch_size = batch_size
+        self.device = device
+
+    def sample(self):
+        anchor = []
+        positive = []
+        negative = []
+        for i in range(self.batch_size):
+            selected_class, other_classes = self.subdataset.extract_classes(1)
+            anchor_positive, _ = selected_class.random_batch(2)
+            anchor_positive = list(anchor_positive)
+            random.shuffle(anchor_positive)
+            anchor.append(anchor_positive[0].to(self.device))
+            positive.append(anchor_positive[1].to(self.device))
+
+            negative_, _ = other_classes.random_batch(1)
+            negative.append(negative_[0].to(self.device))
+
+        return torch.stack(anchor), torch.stack(positive), torch.stack(negative)
+
+
+def evaluate_solution_episodes(model: FewShotLearningSolution, validation_sampler: FSLEpisodeSampler,
+                               n_iterations=600, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
     val_start_time = time.time()
 
     print("Evaluation started...")

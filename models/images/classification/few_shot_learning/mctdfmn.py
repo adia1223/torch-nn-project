@@ -11,13 +11,13 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoFlatteningBackbone
-from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
+from models.images.classification.few_shot_learning import evaluate_solution_episodes, accuracy, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels
 from sessions import Session
 from utils import pretty_time, remove_dim, inverse_mapping
 from visualization.plots import PlotterWindow
 
-MAX_BATCH_SIZE = 20000
+MAX_BATCH_SIZE = 500
 
 EPOCHS_MULTIPLIER = 1
 
@@ -325,7 +325,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
             val_start_time = time.time()
 
-            val_accuracy = evaluate_solution(model, val_sampler)
+            val_accuracy = evaluate_solution_episodes(model, val_sampler)
             accuracy_plotter.add_point('Validation Accuracy', iteration, val_accuracy)
 
             acc_val.append(val_accuracy)
@@ -393,18 +393,18 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'cub'
-    BASE_CLASSES = 150
+    DATASET_NAME = 'google-landmarks'
+    BASE_CLASSES = 4000
     AUGMENT_PROB = 1.0
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
-    N_WAY = 5
+    N_WAY = 15
     EVAL_PERIOD = 1000
-    RECORD = 50
+    RECORD = 500
     ALL_GLOBAL_PROTOTYPES = False
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
-    BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
-    VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
+    BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
+    VAL_BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
     BALANCED_BATCHES = True
 
     # N_SHOT = 5
@@ -428,4 +428,6 @@ if __name__ == '__main__':
                       image_size=IMAGE_SIZE,
                       backbone_name=BACKBONE,
                       balanced_batches=BALANCED_BATCHES,
-                      val_batch_size=VAL_BATCH_SIZE)
+                      val_batch_size=VAL_BATCH_SIZE,
+                      train_ts_steps=0,
+                      test_ts_steps=0)

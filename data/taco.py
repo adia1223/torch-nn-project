@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 
 import torch
 import torchvision
@@ -27,7 +28,7 @@ class ImageItem(object):
 
 
 class TacoDataset(data.LabeledDataset):
-    CLASSES = 39
+    CLASSES = 38
 
     def __init__(self, root=r"C:\datasets\taco\tensors", augment_prob=0.0, reduce=0.0, image_size=84,
                  tensors=True,
@@ -162,5 +163,15 @@ def save_as_tensors(source=r'C:\datasets\taco\images', target=r'C:\datasets\taco
         print(class_label, i)
 
 
-if __name__ == '__main__':
-    save_as_tensors()
+def remove_small(threshold, root=r'C:\datasets\taco\tensors'):
+    for label in os.listdir(root):
+        path = os.path.join(root, label)
+        cnt = len(os.listdir(path))
+        if cnt < threshold:
+            print(label, cnt)
+            shutil.rmtree(path)
+            print("Deleted!")
+
+# if __name__ == '__main__':
+#     # save_as_tensors()
+#     remove_small(10)

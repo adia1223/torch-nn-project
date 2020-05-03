@@ -8,7 +8,7 @@ from torch import nn
 
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoFlatteningBackbone
-from models.images.classification.few_shot_learning import evaluate_solution, accuracy, FSLEpisodeSampler, \
+from models.images.classification.few_shot_learning import evaluate_solution_episodes, accuracy, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels, OPTIMIZERS
 from sessions import Session
 from utils import pretty_time, remove_dim
@@ -162,7 +162,7 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
             val_start_time = time.time()
 
-            val_accuracy = evaluate_solution(model, val_sampler)
+            val_accuracy = evaluate_solution_episodes(model, val_sampler)
             accuracy_plotter.add_point('Validation Accuracy', iteration, val_accuracy)
 
             acc_val.append(val_accuracy)

@@ -1,16 +1,16 @@
 import os
 import random
 import time
-from typing import Tuple
 
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoFlatteningBackbone
-from models.images.classification.few_shot_learning import evaluate_solution_episodes, accuracy, FSLEpisodeSampler, \
-    FEATURE_EXTRACTORS, OPTIMIZERS
+from models.images.classification.few_shot_learning import evaluate_solution_episodes, FSLEpisodeSampler, \
+    FEATURE_EXTRACTORS, OPTIMIZERS, TripletBatchSampler
 from sessions import Session
 from utils import pretty_time, remove_dim
 from visualization.plots import PlotterWindow
@@ -20,15 +20,11 @@ MAX_BATCH_SIZE = 20000
 EPOCHS_MULTIPLIER = 1
 
 
-class ProtoNet_MHLNBS(nn.Module):
-    def __init__(self, backbone: NoFlatteningBackbone):
-        super(ProtoNet_MHLNBS, self).__init__()
+class TripletNet(nn.Module):
+    def __init__(self, backbone: NoFlatteningBackbone, alpha: float):
+        super(TripletNet, self).__init__()
         self.feature_extractor = backbone
-
-        self.latent_features = backbone.output_features()
-        self.latent_featmap_size = backbone.output_featmap_size()
-
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.alpha = alpha
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -53,8 +49,7 @@ class ProtoNet_MHLNBS(nn.Module):
         return x
 
     def get_prototypes(self, support_set: torch.Tensor):
-        vars = torch.std(support_set, dim=1)
-        return torch.mean(support_set, dim=1), vars * 5
+        return torch.mean(support_set, dim=1)
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         n_classes = support_set.size(0)
@@ -66,41 +61,41 @@ class ProtoNet_MHLNBS(nn.Module):
 
         query_set_features = self.extract_features(query_set)
 
-        class_prototypes, class_vars = self.get_prototypes(support_set_features)
+        class_prototypes = self.get_prototypes(support_set_features)
 
         query_set_features_prepared = query_set_features.unsqueeze(1).repeat_interleave(repeats=n_classes,
                                                                                         dim=1)
 
-        diff = (class_prototypes.unsqueeze(0).repeat_interleave(repeats=query_set_size,
-                                                                dim=0) -
-                query_set_features_prepared).pow(2)
-        class_vars = class_vars.unsqueeze(0).repeat_interleave(repeats=query_set_size,
-                                                               dim=0) + 1
-
-        distance = torch.sum(diff / class_vars, dim=2)
+        distance = torch.sum((class_prototypes.unsqueeze(0).repeat_interleave(repeats=query_set_size,
+                                                                              dim=0) -
+                              query_set_features_prepared).pow(2), dim=2)
 
         return -distance
 
-    def forward_with_loss(self, support_set: torch.Tensor, query_set: torch.Tensor, labels: torch.Tensor) -> Tuple[
-        torch.Tensor, torch.Tensor, torch.Tensor]:
-        output = self(support_set, query_set)
-        loss_i = self.loss_fn(output, labels)
+    def triplet_loss(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor,
+                     average=True) -> torch.Tensor:
+        anchor = self.extract_features(anchor)
+        positive = self.extract_features(positive)
+        negative = self.extract_features(negative)
 
-        loss = loss_i
-        return output, loss, loss_i
+        positive_dist = (anchor - positive).pow(2).sum(1)
+        negative_dist = (anchor - negative).pow(2).sum(1)
+        diff = F.relu(positive_dist - negative_dist + self.alpha)
+        loss = torch.sum(diff) if not average else torch.mean(diff)
+        return loss
 
 
-def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
-                         n_iterations: int, batch_size: int, eval_period: int,
-                         val_batch_size: int,
-                         image_size: int,
-                         balanced_batches: bool,
-                         train_n_way=15,
-                         backbone_name='resnet12-np-o',
-                         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
+def train_tripletnet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
+                     n_iterations: int, batch_size: int, eval_period: int,
+                     val_batch_size: int,
+                     image_size: int,
+                     balanced_batches: bool,
+                     alpha=0.5,
+                     backbone_name='resnet12-np-o',
+                     device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
     session_info = {
         "task": "few-shot learning",
-        "model": "ProtoNetMHLNBS",
+        "model": "TripletNet",
         "feature_extractor": backbone_name,
         "n_iterations": n_iterations,
         "eval_period": eval_period,
@@ -110,7 +105,7 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
         "val_batch_size": val_batch_size,
         "n_shot": n_shot,
         "n_way": n_way,
-        "train_n_way": train_n_way,
+        "alpha": alpha,
         "optimizer": 'adam',
         "image_size": image_size,
         "balanced_batches": balanced_batches,
@@ -119,12 +114,11 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
     session_info.update(kwargs)
 
     backbone = FEATURE_EXTRACTORS[backbone_name]()
-    model = ProtoNet_MHLNBS(backbone=backbone).to(device)
+    model = TripletNet(backbone=backbone, alpha=alpha).to(device)
 
     optimizer = OPTIMIZERS['adam'](model=model)
 
-    base_sampler = FSLEpisodeSampler(subdataset=base_subdataset, n_way=train_n_way, n_shot=n_shot,
-                                     batch_size=batch_size, balanced=balanced_batches)
+    base_sampler = TripletBatchSampler(subdataset=base_subdataset, batch_size=batch_size)
     val_sampler = FSLEpisodeSampler(subdataset=val_subdataset, n_way=n_way, n_shot=n_shot, batch_size=val_batch_size,
                                     balanced=balanced_batches)
 
@@ -132,13 +126,11 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
     accuracy_plotter = PlotterWindow(interval=1000)
 
     loss_plotter.new_line('Loss')
-    loss_plotter.new_line('Loss Instance')
-    accuracy_plotter.new_line('Train Accuracy')
+    # accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
 
     losses = []
-    losses_i = []
-    acc_train = []
+    # acc_train = []
     acc_val = []
     val_iters = []
 
@@ -153,31 +145,22 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
 
     for iteration in range(n_iterations):
         model.train()
-
-        support_set, batch = base_sampler.sample()
-        # print(support_set.size())
-        query_set, query_labels = batch
-        # print(query_set.size())
-        # print(global_classes_mapping)
-        query_set = query_set.to(device)
-        query_labels = query_labels.to(device)
+        anchor, positive, negative = base_sampler.sample()
 
         optimizer.zero_grad()
-        output, loss, loss_i = model.forward_with_loss(support_set, query_set, query_labels)
+        loss = model.triplet_loss(anchor, positive, negative)
         loss.backward()
         optimizer.step()
 
-        labels_pred = output.argmax(dim=1)
-        labels = query_labels
-        cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
+        # labels_pred = output.argmax(dim=1)
+        # labels = query_labels
+        # cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
 
         loss_plotter.add_point('Loss', iteration, loss.item())
-        loss_plotter.add_point('Loss Instance', iteration, loss_i.item())
-        accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
+        # accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
         losses.append(loss.item())
-        losses_i.append(loss_i.item())
-        acc_train.append(cur_accuracy)
+        # acc_train.append(cur_accuracy)
 
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
             val_start_time = time.time()
@@ -222,19 +205,18 @@ def train_protonetmhlnbs(base_subdataset: LabeledSubdataset, val_subdataset: Lab
     session_info['execution_time'] = training_time
 
     session = Session()
-    session.build(name="ProtoNetMHLNBS", comment=r"ProtoNet with Mahalanobis distance Few-Shot Learning",
+    session.build(name="TripletNet", comment=r"Triplet loss",
                   **session_info)
     torch.save(model, os.path.join(session.data['output_dir'], "trained_model_state_dict.tar"))
     iters = list(range(1, n_iterations + 1))
 
     plt.figure(figsize=(20, 20))
     plt.plot(iters, losses, label="Loss")
-    plt.plot(iters, losses_i, label="Loss Instance")
     plt.legend()
     plt.savefig(os.path.join(session.data['output_dir'], "loss_plot.png"))
 
     plt.figure(figsize=(20, 20))
-    plt.plot(iters, acc_train, label="Train Accuracy")
+    # plt.plot(iters, acc_train, label="Train Accuracy")
     plt.plot(val_iters, acc_val, label="Test Accuracy")
     plt.legend()
     plt.savefig(os.path.join(session.data['output_dir'], "acc_plot.png"))
@@ -246,18 +228,18 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'miniImageNet'
-    BASE_CLASSES = 80
+    DATASET_NAME = 'google-landmarks'
+    BASE_CLASSES = 4000
     AUGMENT_PROB = 1.0
-    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
+    ITERATIONS = 10000 * EPOCHS_MULTIPLIER
     N_WAY = 5
-    EVAL_PERIOD = 1000
-    RECORD = 220
+    EVAL_PERIOD = 100
+    RECORD = 600
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-p-o'
     # BACKBONE = 'resnet18'
-    BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
-    VAL_BATCH_SIZE = 15 // EPOCHS_MULTIPLIER
+    BATCH_SIZE = 64 // EPOCHS_MULTIPLIER
+    VAL_BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
     BALANCED_BATCHES = True
 
     # N_SHOT = 5
@@ -268,16 +250,16 @@ if __name__ == '__main__':
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
-    for N_SHOT in (5,):
-        train_protonetmhlnbs(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
-                             n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
-                             eval_period=EVAL_PERIOD,
-                             record=RECORD,
-                             augment=AUGMENT_PROB,
-                             dataset=DATASET_NAME,
-                             base_classes=BASE_CLASSES,
-                             dataset_classes=dataset.CLASSES,
-                             image_size=IMAGE_SIZE,
-                             backbone_name=BACKBONE,
-                             balanced_batches=BALANCED_BATCHES,
-                             val_batch_size=VAL_BATCH_SIZE)
+    for N_SHOT in (1,):
+        train_tripletnet(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
+                         n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
+                         eval_period=EVAL_PERIOD,
+                         record=RECORD,
+                         augment=AUGMENT_PROB,
+                         dataset=DATASET_NAME,
+                         base_classes=BASE_CLASSES,
+                         dataset_classes=dataset.CLASSES,
+                         image_size=IMAGE_SIZE,
+                         backbone_name=BACKBONE,
+                         balanced_batches=BALANCED_BATCHES,
+                         val_batch_size=VAL_BATCH_SIZE)
