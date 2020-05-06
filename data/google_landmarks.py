@@ -74,15 +74,58 @@ class GoogleLandmarksDataset(data.LabeledDataset):
         return self.test_subdataset
 
 
+class GoogleLandmarksDataset2(data.LabeledDataset):
+
+    def __init__(self, root=r"C:\datasets\google-landmarks\train\image-tensors-2", reduce=0.0,
+                 random_seed=42, **kwargs):
+        self.CLASSES = len(os.listdir(root))
+
+        self.reduce = reduce
+        random.seed(random_seed)
+
+        self.source_dataset_train = torchvision.datasets.DatasetFolder(root=root, loader=tensor_loader,
+                                                                       extensions=('pt',))
+
+        self.dataset_train_size = len(self.source_dataset_train)
+        items = []
+        labels = []
+        for i in range(self.dataset_train_size):
+            items.append(ImageItem(self.source_dataset_train, i))
+            labels.append(self.source_dataset_train[i][1])
+        is_test = [0] * self.dataset_train_size
+
+        super(GoogleLandmarksDataset2, self).__init__(items, labels, is_test)
+
+        self.train_subdataset, self.test_subdataset = self.subdataset.train_test_split()
+
+        if reduce < 1:
+            self.train_subdataset = self.train_subdataset.downscale(1 - reduce)
+        else:
+            self.train_subdataset = self.train_subdataset.balance(reduce)
+
+    def __getitem__(self, item):
+        image, label, is_test = super(GoogleLandmarksDataset2, self).__getitem__(item)
+        return image, label, is_test
+
+    def label_stat(self):
+        pass
+
+    def train(self):
+        return self.train_subdataset
+
+    def test(self):
+        return self.test_subdataset
+
+
 import pandas as pd
 
 ATTEMPTS = 3
 SLEEP = 1
 
 
-def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train.csv',
-                    target=r'C:\datasets\google-landmarks\train\image-tensors',
-                    image_size=84):
+def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train_2.csv',
+                    target=r'C:\datasets\google-landmarks\train\image-tensors-2',
+                    image_size=224):
     resize = transforms.Compose(
         [
             transforms.Resize(image_size),
@@ -142,7 +185,7 @@ def load_from_index(source=r'C:\datasets\google-landmarks\train\filtered_train.c
             print(i)
 
 
-def remove_small(threshold, root=r"C:\datasets\google-landmarks\train\image-tensors"):
+def remove_small(threshold, root=r"C:\datasets\google-landmarks\train\image-tensors-2"):
     for label in os.listdir(root):
         path = os.path.join(root, label)
         cnt = len(os.listdir(path))
@@ -152,5 +195,5 @@ def remove_small(threshold, root=r"C:\datasets\google-landmarks\train\image-tens
             print("Deleted!")
 
 # if __name__ == '__main__':
-#     # load_from_index()
-#     # remove_small(10)
+#     load_from_index(image_size=224)
+#     remove_small(10)

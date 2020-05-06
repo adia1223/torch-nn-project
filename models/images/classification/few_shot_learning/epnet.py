@@ -19,9 +19,10 @@ MAX_BATCH_SIZE = 500
 EPOCHS_MULTIPLIER = 1
 
 
-class ProtoNet(nn.Module):
+# TODO
+class EPNet(nn.Module):
     def __init__(self, backbone: NoFlatteningBackbone):
-        super(ProtoNet, self).__init__()
+        super(EPNet, self).__init__()
         self.feature_extractor = backbone
 
         self.loss_fn = nn.CrossEntropyLoss()
@@ -102,7 +103,7 @@ def train_protonet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSu
     session_info.update(kwargs)
 
     backbone = FEATURE_EXTRACTORS[backbone_name]()
-    model = ProtoNet(backbone=backbone).to(device)
+    model = EPNet(backbone=backbone).to(device)
 
     optimizer = OPTIMIZERS['adam'](model=model)
 

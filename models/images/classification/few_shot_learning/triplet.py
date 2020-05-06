@@ -1,6 +1,7 @@
 import os
 import random
 import time
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import torch
@@ -15,7 +16,7 @@ from sessions import Session
 from utils import pretty_time, remove_dim
 from visualization.plots import PlotterWindow
 
-MAX_BATCH_SIZE = 20000
+MAX_BATCH_SIZE = 100
 
 EPOCHS_MULTIPLIER = 1
 
@@ -73,7 +74,7 @@ class TripletNet(nn.Module):
         return -distance
 
     def triplet_loss(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor,
-                     average=True) -> torch.Tensor:
+                     average=True) -> Tuple[torch.Tensor, torch.Tensor]:
         anchor = self.extract_features(anchor)
         positive = self.extract_features(positive)
         negative = self.extract_features(negative)
@@ -82,7 +83,7 @@ class TripletNet(nn.Module):
         negative_dist = (anchor - negative).pow(2).sum(1)
         diff = F.relu(positive_dist - negative_dist + self.alpha)
         loss = torch.sum(diff) if not average else torch.mean(diff)
-        return loss
+        return loss, torch.mean((positive_dist < negative_dist).type(torch.FloatTensor))
 
 
 def train_tripletnet(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSubdataset, n_shot: int, n_way: int,
@@ -126,11 +127,11 @@ def train_tripletnet(base_subdataset: LabeledSubdataset, val_subdataset: Labeled
     accuracy_plotter = PlotterWindow(interval=1000)
 
     loss_plotter.new_line('Loss')
-    # accuracy_plotter.new_line('Train Accuracy')
+    accuracy_plotter.new_line('Train Accuracy')
     accuracy_plotter.new_line('Validation Accuracy')
 
     losses = []
-    # acc_train = []
+    acc_train = []
     acc_val = []
     val_iters = []
 
@@ -148,19 +149,20 @@ def train_tripletnet(base_subdataset: LabeledSubdataset, val_subdataset: Labeled
         anchor, positive, negative = base_sampler.sample()
 
         optimizer.zero_grad()
-        loss = model.triplet_loss(anchor, positive, negative)
+        loss, cur_accuracy = model.triplet_loss(anchor, positive, negative)
         loss.backward()
         optimizer.step()
 
         # labels_pred = output.argmax(dim=1)
         # labels = query_labels
         # cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
+        cur_accuracy = cur_accuracy.item()
 
         loss_plotter.add_point('Loss', iteration, loss.item())
-        # accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
+        accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
         losses.append(loss.item())
-        # acc_train.append(cur_accuracy)
+        acc_train.append(cur_accuracy)
 
         if iteration % eval_period == 0 or iteration == n_iterations - 1:
             val_start_time = time.time()
@@ -216,7 +218,7 @@ def train_tripletnet(base_subdataset: LabeledSubdataset, val_subdataset: Labeled
     plt.savefig(os.path.join(session.data['output_dir'], "loss_plot.png"))
 
     plt.figure(figsize=(20, 20))
-    # plt.plot(iters, acc_train, label="Train Accuracy")
+    plt.plot(iters, acc_train, label="Train Accuracy")
     plt.plot(val_iters, acc_val, label="Test Accuracy")
     plt.legend()
     plt.savefig(os.path.join(session.data['output_dir'], "acc_plot.png"))
@@ -228,17 +230,17 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'google-landmarks'
-    BASE_CLASSES = 4000
+    DATASET_NAME = 'google-landmarks-2'
+    BASE_CLASSES = 800
     AUGMENT_PROB = 1.0
-    ITERATIONS = 10000 * EPOCHS_MULTIPLIER
+    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
-    EVAL_PERIOD = 100
+    EVAL_PERIOD = 1000
     RECORD = 600
-    IMAGE_SIZE = 84
+    IMAGE_SIZE = 224
     BACKBONE = 'conv64-p-o'
     # BACKBONE = 'resnet18'
-    BATCH_SIZE = 64 // EPOCHS_MULTIPLIER
+    BATCH_SIZE = 8 // EPOCHS_MULTIPLIER
     VAL_BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
     BALANCED_BATCHES = True
 
@@ -250,7 +252,7 @@ if __name__ == '__main__':
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
-    for N_SHOT in (1,):
+    for N_SHOT in (1, 5):
         train_tripletnet(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
                          n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
                          eval_period=EVAL_PERIOD,

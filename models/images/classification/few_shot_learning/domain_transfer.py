@@ -2,7 +2,10 @@ import json
 
 # noinspection PyUnresolvedReferences
 from models.images.classification.few_shot_learning.mctdfmn import *
+# noinspection PyUnresolvedReferences
 from models.images.classification.few_shot_learning.protonet import *
+# noinspection PyUnresolvedReferences
+from models.images.classification.few_shot_learning.triplet import *
 
 
 def change_dataset(model_folder: str, dataset_name: str, record: int, val_batch_size: int = None,
@@ -56,13 +59,20 @@ if __name__ == '__main__':
     #          # 5-shot miniImageNet
     #          ]
 
-    paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_424847-30-38-05-01-05-2020',
-             # 1-shot miniImageNet 15-way no ts
-             r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_674842-01-41-11-01-05-2020'
-             # 5-shot miniImageNet 15-way no ts
+    # paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_424847-30-38-05-01-05-2020',
+    #          # 1-shot google-landmarks 15-way no ts
+    #          r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_674842-01-41-11-01-05-2020'
+    #          # 5-shot google-landmarks 15-way no ts
+    #          ]
+
+    paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\TripletNet\TripletNet_214392-04-52-05-04-05-2020',
+             # 1-shot google-landmarks
+             # r''
+             # # ...
              ]
+
     DATASET_NAME = 'google-landmarks'
-    RECORD = 510
+    RECORD = 530
 
     for path in paths:
         print(path)
