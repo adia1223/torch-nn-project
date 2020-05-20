@@ -230,14 +230,14 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'google-landmarks-2'
+    DATASET_NAME = 'google-landmarks'
     BASE_CLASSES = 800
     AUGMENT_PROB = 1.0
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 5
     EVAL_PERIOD = 1000
-    RECORD = 600
-    IMAGE_SIZE = 224
+    RECORD = -1
+    IMAGE_SIZE = 84
     BACKBONE = 'conv64-p-o'
     # BACKBONE = 'resnet18'
     BATCH_SIZE = 8 // EPOCHS_MULTIPLIER

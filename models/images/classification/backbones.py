@@ -274,10 +274,10 @@ class ConvNet64Original(NoFlatteningBackbone):
         # self.fc1_ls = nn.Linear(16, 1)
 
     def forward(self, x):
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x = self.layer1(x)  # 42 x 42
+        x = self.layer2(x)  # 21 x 21
+        x = self.layer3(x)  # 11 x 11
+        x = self.layer4(x)  # 6 x 6
         # print(x.size())
         return x
 
