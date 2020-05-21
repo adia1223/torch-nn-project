@@ -65,14 +65,21 @@ if __name__ == '__main__':
     #          # 5-shot google-landmarks 15-way no ts
     #          ]
 
-    paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\TripletNet\TripletNet_214392-04-52-05-04-05-2020',
-             # 1-shot google-landmarks
-             # r''
-             # # ...
-             ]
+    # paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\TripletNet\TripletNet_214392-04-52-05-04-05-2020',
+    #          # 1-shot google-landmarks
+    #          # r''
+    #          # # ...
+    #          ]
 
-    DATASET_NAME = 'google-landmarks'
-    RECORD = 530
+    paths = [
+        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_938241-46-25-15-21-05-2020',
+        # 5-shot google-landmarks-selfsupervised 15-way no ts
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_470720-12-23-06-21-05-2020'
+        # 1-shot google-landmarks-selfsupervised 15-way no ts
+    ]
+
+    DATASET_NAME = 'google-landmarks-test'
+    RECORD = -1
 
     for path in paths:
         print(path)

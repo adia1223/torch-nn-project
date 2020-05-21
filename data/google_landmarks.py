@@ -45,10 +45,10 @@ class GoogleLandmarksDatasetBase(data.LabeledDataset):
         self.dataset_train_size = len(self.source_dataset_train)
         items = []
         labels = []
+        is_test = [0] * self.dataset_train_size
         for i in range(self.dataset_train_size):
             items.append(ImageItem(self.source_dataset_train, i))
             labels.append(self.source_dataset_train[i][1])
-        is_test = [0] * self.dataset_train_size
 
         super(GoogleLandmarksDatasetBase, self).__init__(items, labels, is_test)
 
@@ -89,6 +89,12 @@ class GoogleLandmarksDatasetSelfSupervision(GoogleLandmarksDatasetBase):
     def __init__(self, root=r"C:\datasets\google-landmarks\train\image-tensors-selfsupervision", reduce=0.0,
                  random_seed=42, **kwargs):
         super(GoogleLandmarksDatasetSelfSupervision, self).__init__(root, reduce, random_seed, **kwargs)
+
+
+class GoogleLandmarksDatasetTest(GoogleLandmarksDatasetBase):
+    def __init__(self, root=r"C:\datasets\google-landmarks\test\image-tensors", reduce=0.0,
+                 random_seed=42, **kwargs):
+        super(GoogleLandmarksDatasetTest, self).__init__(root, reduce, random_seed, **kwargs)
 
 
 import pandas as pd
