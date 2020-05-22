@@ -72,14 +72,14 @@ if __name__ == '__main__':
     #          ]
 
     paths = [
-        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_938241-46-25-15-21-05-2020',
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_810889-42-11-03-22-05-2020',
         # 5-shot google-landmarks-selfsupervised 15-way no ts
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_470720-12-23-06-21-05-2020'
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_375041-53-19-07-22-05-2020'
         # 1-shot google-landmarks-selfsupervised 15-way no ts
     ]
 
     DATASET_NAME = 'google-landmarks-test'
-    RECORD = -1
+    RECORD = 720
 
     for path in paths:
         print(path)

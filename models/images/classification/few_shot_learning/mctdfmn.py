@@ -1,3 +1,4 @@
+import copy
 import os
 import random
 import time
@@ -279,6 +280,8 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     acc_val = []
     val_iters = []
 
+    best_model = copy.deepcopy(model)
+
     best_accuracy = 0
     best_iteration = -1
 
@@ -334,6 +337,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
             if val_accuracy > best_accuracy:
                 best_accuracy = val_accuracy
                 best_iteration = iteration
+                best_model = copy.deepcopy(model)
                 print("Best evaluation result yet!")
 
             cur_time = time.time()
@@ -370,7 +374,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     # session.data.update(session_info)
     # save_record(name="Few-Shot Learning Training: MCT + DFMN", **session_info)
 
-    torch.save(model, os.path.join(session.data['output_dir'], "trained_model_state_dict.tar"))
+    torch.save(best_model, os.path.join(session.data['output_dir'], "trained_model_state_dict.tar"))
     iters = list(range(1, n_iterations + 1))
 
     plt.figure(figsize=(20, 20))
@@ -399,7 +403,7 @@ if __name__ == '__main__':
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 15
     EVAL_PERIOD = 1000
-    RECORD = 700
+    RECORD = 710
     ALL_GLOBAL_PROTOTYPES = False
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
