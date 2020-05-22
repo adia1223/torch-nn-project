@@ -397,18 +397,18 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    DATASET_NAME = 'google-landmarks-selfsupervision'
-    BASE_CLASSES = 12000
+    DATASET_NAME = 'google-landmarks'
+    BASE_CLASSES = 3000
     AUGMENT_PROB = 1.0
     ITERATIONS = 40000 * EPOCHS_MULTIPLIER
     N_WAY = 15
     EVAL_PERIOD = 1000
-    RECORD = 710
+    RECORD = 730
     ALL_GLOBAL_PROTOTYPES = False
     IMAGE_SIZE = 84
     BACKBONE = 'conv64-np-o'
-    BATCH_SIZE = 3 // EPOCHS_MULTIPLIER
-    VAL_BATCH_SIZE = 3 // EPOCHS_MULTIPLIER
+    BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
+    VAL_BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
     BALANCED_BATCHES = True
 
     # N_SHOT = 5
@@ -419,7 +419,7 @@ if __name__ == '__main__':
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
-    for N_SHOT in (5, 1):
+    for N_SHOT in (1,):
         train_mctdfmn(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
                       n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
                       eval_period=EVAL_PERIOD,
