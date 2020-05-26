@@ -439,9 +439,10 @@ if __name__ == '__main__':
     val_subdataset.set_test(True)
 
     pre_dataset = None
-    if PRETRAINING_DATASET_NAME and PRETRAINING_BASE_CLASSES and PRETRAINING_N_WAY and PRETRAINING_EVAL_PERIOD and PRETRAINING_ITERATIONS:
+    if PRETRAINING_DATASET_NAME and PRETRAINING_BASE_CLASSES and PRETRAINING_N_WAY and PRETRAINING_EVAL_PERIOD \
+            and PRETRAINING_ITERATIONS:
         pre_dataset = LABELED_DATASETS[PRETRAINING_DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
-        pre_base_subdataset, pre_val_subdataset = dataset.subdataset.extract_classes(PRETRAINING_BASE_CLASSES)
+        pre_base_subdataset, pre_val_subdataset = pre_dataset.subdataset.extract_classes(PRETRAINING_BASE_CLASSES)
         pre_base_subdataset.set_test(False)
         pre_val_subdataset.set_test(True)
 
