@@ -60,9 +60,9 @@ if __name__ == '__main__':
     #          ]
 
     paths = [
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_704733-26-18-15-22-05-2020',
+        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_704733-26-18-15-22-05-2020',
         # 1-shot google-landmarks 15-way no ts
-        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_674842-01-41-11-01-05-2020'
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_396976-51-31-06-23-05-2020'
         # 5-shot google-landmarks 15-way no ts
     ]
 

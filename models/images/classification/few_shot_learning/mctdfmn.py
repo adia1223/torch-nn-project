@@ -20,8 +20,6 @@ from visualization.plots import PlotterWindow
 
 MAX_BATCH_SIZE = 500
 
-EPOCHS_MULTIPLIER = 1
-
 
 class ScaleModule(nn.Module):
     def __init__(self, in_features, map_size):
@@ -222,6 +220,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
                   dataset_classes: int,
                   image_size: int,
                   balanced_batches: bool,
+                  pretrained_model: MCTDFMN = None,
                   train_n_way=15,
                   backbone_name='resnet12-np', lr=0.1,
                   train_ts_steps=1,
@@ -247,14 +246,18 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         "all_global_prototypes": all_global_prototypes,
         "image_size": image_size,
         "balanced_batches": balanced_batches,
+        "pretrained_model": pretrained_model is not None,
     }
 
     session_info.update(kwargs)
 
     backbone = FEATURE_EXTRACTORS[backbone_name]()
-    model = MCTDFMN(backbone=backbone, test_transduction_steps=test_ts_steps,
-                    train_transduction_steps=train_ts_steps, train_classes=dataset_classes,
-                    all_global_prototypes=all_global_prototypes).to(device)
+    if pretrained_model is None:
+        model = MCTDFMN(backbone=backbone, test_transduction_steps=test_ts_steps,
+                        train_transduction_steps=train_ts_steps, train_classes=dataset_classes,
+                        all_global_prototypes=all_global_prototypes).to(device)
+    else:
+        model = copy.deepcopy(pretrained_model)
 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, nesterov=True, weight_decay=0.0005, momentum=0.9)
     scheduler = LambdaLR(optimizer, lr_lambda=lr_schedule)
@@ -391,27 +394,43 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     plt.savefig(os.path.join(session.data['output_dir'], "acc_plot.png"))
 
     session.save_info()
+    return best_model
 
 
 if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
+    PRETRAINING_DATASET_NAME = 'google-landmarks-selfsupervision'
+    # PRETRAINING_DATASET_NAME = ''
     DATASET_NAME = 'google-landmarks'
-    BASE_CLASSES = 3000
-    AUGMENT_PROB = 1.0
-    ITERATIONS = 40000 * EPOCHS_MULTIPLIER
-    N_WAY = 15
-    EVAL_PERIOD = 1000
-    RECORD = 730
-    ALL_GLOBAL_PROTOTYPES = False
-    IMAGE_SIZE = 84
-    BACKBONE = 'conv64-np-o'
-    BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
-    VAL_BATCH_SIZE = 5 // EPOCHS_MULTIPLIER
-    BALANCED_BATCHES = True
 
-    # N_SHOT = 5
+    BASE_CLASSES = 3000
+    PRETRAINING_BASE_CLASSES = 8000
+
+    AUGMENT_PROB = 1.0
+
+    PRETRAINING_ITERATIONS = 30000
+    ITERATIONS = 40000
+
+    PRETRAINING_N_WAY = 15
+    N_WAY = 15
+
+    PRETRAINING_EVAL_PERIOD = 1000
+    EVAL_PERIOD = 1000
+
+    RECORD = 750
+
+    ALL_GLOBAL_PROTOTYPES = False
+
+    IMAGE_SIZE = 84
+
+    BACKBONE = 'conv64-np-o'
+
+    BATCH_SIZE = 5
+    VAL_BATCH_SIZE = 5
+
+    BALANCED_BATCHES = True
 
     print("Preparations for training...")
     dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
@@ -419,7 +438,35 @@ if __name__ == '__main__':
     base_subdataset.set_test(False)
     val_subdataset.set_test(True)
 
+    pre_dataset = None
+    if PRETRAINING_DATASET_NAME and PRETRAINING_BASE_CLASSES and PRETRAINING_N_WAY and PRETRAINING_EVAL_PERIOD and PRETRAINING_ITERATIONS:
+        pre_dataset = LABELED_DATASETS[PRETRAINING_DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
+        pre_base_subdataset, pre_val_subdataset = dataset.subdataset.extract_classes(PRETRAINING_BASE_CLASSES)
+        pre_base_subdataset.set_test(False)
+        pre_val_subdataset.set_test(True)
+
     for N_SHOT in (1,):
+        pretraining_result = None
+
+        if pre_dataset is not None:
+            print("Self-supervised stage")
+            pretraining_result = train_mctdfmn(base_subdataset=pre_base_subdataset, val_subdataset=pre_val_subdataset,
+                                               n_shot=N_SHOT, n_way=PRETRAINING_N_WAY,
+                                               n_iterations=PRETRAINING_ITERATIONS, batch_size=BATCH_SIZE,
+                                               eval_period=PRETRAINING_EVAL_PERIOD,
+                                               record=RECORD,
+                                               augment=AUGMENT_PROB,
+                                               dataset=PRETRAINING_DATASET_NAME,
+                                               base_classes=PRETRAINING_BASE_CLASSES,
+                                               dataset_classes=pre_dataset.CLASSES,
+                                               all_global_prototypes=ALL_GLOBAL_PROTOTYPES,
+                                               image_size=IMAGE_SIZE,
+                                               backbone_name=BACKBONE,
+                                               balanced_batches=BALANCED_BATCHES,
+                                               val_batch_size=VAL_BATCH_SIZE,
+                                               train_ts_steps=0,
+                                               test_ts_steps=0)
+        print("Main stage")
         train_mctdfmn(base_subdataset=base_subdataset, val_subdataset=val_subdataset, n_shot=N_SHOT, n_way=N_WAY,
                       n_iterations=ITERATIONS, batch_size=BATCH_SIZE,
                       eval_period=EVAL_PERIOD,
@@ -434,4 +481,5 @@ if __name__ == '__main__':
                       balanced_batches=BALANCED_BATCHES,
                       val_batch_size=VAL_BATCH_SIZE,
                       train_ts_steps=0,
-                      test_ts_steps=0)
+                      test_ts_steps=0,
+                      pretrained_model=pretraining_result)
