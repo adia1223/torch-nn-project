@@ -44,9 +44,9 @@ class ScaleModule(nn.Module):
 
 
 def lr_schedule(iter: int):
-    if iter >= 30000 * EPOCHS_MULTIPLIER:
+    if iter >= 30000:
         return 0.0012
-    elif iter >= 20000 * EPOCHS_MULTIPLIER:
+    elif iter >= 20000:
         return 0.006
     else:
         return 0.1
