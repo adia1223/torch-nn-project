@@ -59,12 +59,12 @@ if __name__ == '__main__':
     #          # 5-shot miniImageNet
     #          ]
 
-    paths = [
-        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_704733-26-18-15-22-05-2020',
-        # 1-shot google-landmarks 15-way no ts
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_396976-51-31-06-23-05-2020'
-        # 5-shot google-landmarks 15-way no ts
-    ]
+    # paths = [
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_704733-26-18-15-22-05-2020',
+    #     # 1-shot google-landmarks 15-way no ts
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_396976-51-31-06-23-05-2020'
+    #     # 5-shot google-landmarks 15-way no ts
+    # ]
 
     # paths = [r'D:\petrtsv\projects\ds\pytorch-sessions\TripletNet\TripletNet_214392-04-52-05-04-05-2020',
     #          # 1-shot google-landmarks
@@ -74,13 +74,20 @@ if __name__ == '__main__':
 
     # paths = [
     #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_810889-42-11-03-22-05-2020',
-    #     # 5-shot google-landmarks-selfsupervised 15-way no ts
+    #     # 5-shot google-landmarks + google-landmarks-selfsupervised 15-way no ts
     #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_375041-53-19-07-22-05-2020'
-    #     # 1-shot google-landmarks-selfsupervised 15-way no ts
+    #     # 1-shot google-landmarks + google-landmarks-selfsupervised 15-way no ts
     # ]
 
+    paths = [
+        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_826860-08-48-08-27-05-2020',
+        # 1-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_565503-44-34-07-28-05-2020'
+        # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+    ]
+
     DATASET_NAME = 'google-landmarks-test'
-    RECORD = 730
+    RECORD = -760
 
     for path in paths:
         print(path)

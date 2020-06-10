@@ -419,7 +419,7 @@ if __name__ == '__main__':
     PRETRAINING_EVAL_PERIOD = 1000
     EVAL_PERIOD = 1000
 
-    RECORD = 750
+    RECORD = 760
 
     ALL_GLOBAL_PROTOTYPES = False
 
@@ -427,8 +427,8 @@ if __name__ == '__main__':
 
     BACKBONE = 'conv64-np-o'
 
-    BATCH_SIZE = 5
-    VAL_BATCH_SIZE = 5
+    BATCH_SIZE = 3
+    VAL_BATCH_SIZE = 3
 
     BALANCED_BATCHES = True
 
@@ -446,7 +446,7 @@ if __name__ == '__main__':
         pre_base_subdataset.set_test(False)
         pre_val_subdataset.set_test(True)
 
-    for N_SHOT in (1,):
+    for N_SHOT in (5,):
         pretraining_result = None
 
         if pre_dataset is not None:

@@ -212,6 +212,7 @@ def evaluate_solution_episodes(model: FewShotLearningSolution, validation_sample
             labels_pred = output.argmax(dim=1)
             labels = query_labels
             cur_accuracy = accuracy(labels=labels, labels_pred=labels_pred)
+            print(cur_accuracy)
             res_accuracy += cur_accuracy
     res_accuracy /= n_iterations
     cur_time = time.time()
