@@ -79,15 +79,22 @@ if __name__ == '__main__':
     #     # 1-shot google-landmarks + google-landmarks-selfsupervised 15-way no ts
     # ]
 
+    # paths = [
+    #     # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_826860-08-48-08-27-05-2020',
+    #     # 1-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_565503-44-34-07-28-05-2020'
+    #     # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+    # ]
+
     paths = [
-        # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_826860-08-48-08-27-05-2020',
-        # 1-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_565503-44-34-07-28-05-2020'
-        # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_216898-02-08-07-16-06-2020',
+        # 1-shot google-landmarks 15-way no ts no scaling
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_606202-24-36-11-16-06-2020'
+        # 5-shot google-landmarks 15-way no ts no scaling
     ]
 
     DATASET_NAME = 'google-landmarks-test'
-    RECORD = -760
+    RECORD = 780
 
     for path in paths:
         print(path)

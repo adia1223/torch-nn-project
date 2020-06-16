@@ -15,6 +15,7 @@ from models.images.classification.backbones import NoFlatteningBackbone
 from models.images.classification.few_shot_learning import evaluate_solution_episodes, accuracy, FSLEpisodeSampler, \
     FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels
 from sessions import Session
+from torch_utils import flip_dimension
 from utils import pretty_time, remove_dim, inverse_mapping
 from visualization.plots import PlotterWindow
 
@@ -54,7 +55,8 @@ def lr_schedule(iter: int):
 
 class MCTDFMN(nn.Module):
     def __init__(self, train_classes: int, backbone: NoFlatteningBackbone, train_transduction_steps=1,
-                 test_transduction_steps=10, lmb=0.2, all_global_prototypes=True,
+                 test_transduction_steps=10, lmb=0.2, all_global_prototypes=True, scaling=True,
+                 pca=False, extend_input=False,
                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
         super(MCTDFMN, self).__init__()
         self.n_classes = None
@@ -64,6 +66,11 @@ class MCTDFMN(nn.Module):
         self.query_set_features = None
         self.query_set_size = None
         self.device = device
+
+        self.scaling = scaling
+        self.pca = pca
+
+        self.extend_input = extend_input
 
         self.train_classes = train_classes
         self.all_global_prototypes = all_global_prototypes
@@ -114,8 +121,12 @@ class MCTDFMN(nn.Module):
             self.class_prototypes = self.update_prototypes(support_set, query_set)
 
     def distance(self, a: torch.Tensor, b: torch.Tensor):
-        a_scale = self.scale_module(a)
-        b_scale = self.scale_module(b)
+        if self.scaling:
+            a_scale = self.scale_module(a)
+            b_scale = self.scale_module(b)
+        else:
+            a_scale = 1
+            b_scale = 1
 
         a = a.reshape(a.size(0), -1)
         b = b.reshape(b.size(0), -1)
@@ -164,6 +175,11 @@ class MCTDFMN(nn.Module):
 
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         self.n_classes = support_set.size(0)
+
+        flipped_support_set = flip_dimension(support_set, 3)
+
+        support_set = torch.cat([support_set, flipped_support_set], dim=1)
+
         self.support_set_size = support_set.size(1)
         self.query_set_size = query_set.size(0)
 
@@ -226,6 +242,9 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
                   train_ts_steps=1,
                   test_ts_steps=10,
                   all_global_prototypes=True,
+                  no_scaling=False,
+                  pca=False,
+                  extend_input=False,
                   device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"), **kwargs):
     session_info = {
         "task": "few-shot learning",
@@ -247,6 +266,9 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
         "image_size": image_size,
         "balanced_batches": balanced_batches,
         "pretrained_model": pretrained_model is not None,
+        "no_scaling": no_scaling,
+        "pca": pca,
+        "extend_input": extend_input,
     }
 
     session_info.update(kwargs)
@@ -255,7 +277,8 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
     if pretrained_model is None:
         model = MCTDFMN(backbone=backbone, test_transduction_steps=test_ts_steps,
                         train_transduction_steps=train_ts_steps, train_classes=dataset_classes,
-                        all_global_prototypes=all_global_prototypes).to(device)
+                        all_global_prototypes=all_global_prototypes, scaling=not no_scaling,
+                        pca=pca, extend_input=extend_input).to(device)
     else:
         model = copy.deepcopy(pretrained_model)
 
@@ -401,8 +424,8 @@ if __name__ == '__main__':
     torch.random.manual_seed(2002)
     random.seed(2002)
 
-    PRETRAINING_DATASET_NAME = 'google-landmarks-selfsupervision'
-    # PRETRAINING_DATASET_NAME = ''
+    # PRETRAINING_DATASET_NAME = 'google-landmarks-selfsupervision'
+    PRETRAINING_DATASET_NAME = ''
     DATASET_NAME = 'google-landmarks'
 
     BASE_CLASSES = 3000
@@ -419,7 +442,7 @@ if __name__ == '__main__':
     PRETRAINING_EVAL_PERIOD = 1000
     EVAL_PERIOD = 1000
 
-    RECORD = 760
+    RECORD = 790
 
     ALL_GLOBAL_PROTOTYPES = False
 
@@ -427,10 +450,15 @@ if __name__ == '__main__':
 
     BACKBONE = 'conv64-np-o'
 
-    BATCH_SIZE = 3
-    VAL_BATCH_SIZE = 3
+    BATCH_SIZE = 5
+    VAL_BATCH_SIZE = 5
 
     BALANCED_BATCHES = True
+
+    SCALING = True
+    APPLY_PCA = False
+
+    EXTEND_INPUT = True
 
     print("Preparations for training...")
     dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
@@ -446,7 +474,7 @@ if __name__ == '__main__':
         pre_base_subdataset.set_test(False)
         pre_val_subdataset.set_test(True)
 
-    for N_SHOT in (5,):
+    for N_SHOT, BATCH_SIZE, VAL_BATCH_SIZE in ((5, 3, 3), (1, 5, 5)):
         pretraining_result = None
 
         if pre_dataset is not None:
@@ -462,9 +490,12 @@ if __name__ == '__main__':
                                                dataset_classes=pre_dataset.CLASSES,
                                                all_global_prototypes=ALL_GLOBAL_PROTOTYPES,
                                                image_size=IMAGE_SIZE,
+                                               extend_input=EXTEND_INPUT,
                                                backbone_name=BACKBONE,
                                                balanced_batches=BALANCED_BATCHES,
                                                val_batch_size=VAL_BATCH_SIZE,
+                                               no_scaling=not SCALING,
+                                               pca=APPLY_PCA,
                                                train_ts_steps=0,
                                                test_ts_steps=0)
         print("Main stage")
@@ -478,9 +509,12 @@ if __name__ == '__main__':
                       dataset_classes=dataset.CLASSES,
                       all_global_prototypes=ALL_GLOBAL_PROTOTYPES,
                       image_size=IMAGE_SIZE,
+                      extend_input=EXTEND_INPUT,
                       backbone_name=BACKBONE,
                       balanced_batches=BALANCED_BATCHES,
                       val_batch_size=VAL_BATCH_SIZE,
+                      no_scaling=not SCALING,
+                      pca=APPLY_PCA,
                       train_ts_steps=0,
                       test_ts_steps=0,
                       pretrained_model=pretraining_result)
