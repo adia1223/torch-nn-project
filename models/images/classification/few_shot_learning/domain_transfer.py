@@ -86,15 +86,22 @@ if __name__ == '__main__':
     #     # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
     # ]
 
+    # paths = [
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_216898-02-08-07-16-06-2020',
+    #     # 1-shot google-landmarks 15-way no ts no scaling
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_606202-24-36-11-16-06-2020'
+    #     # 5-shot google-landmarks 15-way no ts no scaling
+    # ]
+
     paths = [
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_216898-02-08-07-16-06-2020',
-        # 1-shot google-landmarks 15-way no ts no scaling
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_606202-24-36-11-16-06-2020'
-        # 5-shot google-landmarks 15-way no ts no scaling
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_959766-57-51-01-17-06-2020',
+        # 1-shot google-landmarks 15-way extended input
+        # r''
+        # 5-shot google-landmarks 15-way extended input
     ]
 
     DATASET_NAME = 'google-landmarks-test'
-    RECORD = 780
+    RECORD = 790
 
     for path in paths:
         print(path)

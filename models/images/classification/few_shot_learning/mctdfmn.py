@@ -7,6 +7,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+from sklearn.decomposition import PCA
 from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
 
@@ -69,6 +70,7 @@ class MCTDFMN(nn.Module):
 
         self.scaling = scaling
         self.pca = pca
+        self.pca_transformer = PCA()
 
         self.extend_input = extend_input
 
@@ -173,12 +175,21 @@ class MCTDFMN(nn.Module):
         new_proto = torch.div(new_proto, classes_denom.unsqueeze(1).unsqueeze(1).unsqueeze(1).expand_as(new_proto))
         return new_proto
 
+    def apply_pca_transform(self):
+        prototypes_data = self.pca_transformer.fit_transform(self.class_prototypes.view(self.n_classes, -1).cpu())
+        query_set_data = self.pca_transformer.transform(self.query_set_features.view(self.query_set_size, -1).cpu())
+        self.class_prototypes = torch.from_numpy(prototypes_data).to(self.class_prototypes.device).view(self.n_classes,
+                                                                                                        -1, 1, 1)
+        self.query_set_features = torch.from_numpy(query_set_data).to(self.query_set_features.device).view(
+            self.query_set_size, -1, 1, 1)
+
     def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
         self.n_classes = support_set.size(0)
 
-        flipped_support_set = flip_dimension(support_set, 3)
+        if self.extend_input:
+            flipped_support_set = flip_dimension(support_set, 4)
 
-        support_set = torch.cat([support_set, flipped_support_set], dim=1)
+            support_set = torch.cat([support_set, flipped_support_set], dim=1)
 
         self.support_set_size = support_set.size(1)
         self.query_set_size = query_set.size(0)
@@ -191,6 +202,9 @@ class MCTDFMN(nn.Module):
         self.query_set_features = self.extract_features(query_set)
 
         self.build_prototypes(self.support_set_features, self.query_set_features)
+
+        if self.pca and not self.training:
+            self.apply_pca_transform()
 
         return self.get_distances(self.query_set_features)
 
@@ -442,7 +456,7 @@ if __name__ == '__main__':
     PRETRAINING_EVAL_PERIOD = 1000
     EVAL_PERIOD = 1000
 
-    RECORD = 790
+    RECORD = 800
 
     ALL_GLOBAL_PROTOTYPES = False
 
@@ -455,8 +469,10 @@ if __name__ == '__main__':
 
     BALANCED_BATCHES = True
 
-    SCALING = True
-    APPLY_PCA = False
+    SCALING = False
+    APPLY_PCA = True
+
+    assert not (SCALING and APPLY_PCA)
 
     EXTEND_INPUT = True
 
@@ -474,7 +490,10 @@ if __name__ == '__main__':
         pre_base_subdataset.set_test(False)
         pre_val_subdataset.set_test(True)
 
-    for N_SHOT, BATCH_SIZE, VAL_BATCH_SIZE in ((5, 3, 3), (1, 5, 5)):
+    for N_SHOT, BATCH_SIZE, VAL_BATCH_SIZE in (
+            (1, 5, 5),
+            (5, 3, 3)
+    ):
         pretraining_result = None
 
         if pre_dataset is not None:
