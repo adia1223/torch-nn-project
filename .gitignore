@@ -205,3 +205,4 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+/example_data/

@@ -22,6 +22,17 @@ class FewShotLearningSolution(nn.Module):
         raise NotImplementedError
 
 
+class FitTransformFewShotLearningSolution(FewShotLearningSolution):
+    def forward(self, support_set: torch.Tensor, query_set: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def fit(self, support_set: torch.Tensor):
+        raise NotImplementedError
+
+    def transform(self, x: torch.Tensor):
+        raise NotImplementedError
+
+
 class ProtoNetBasedFSLSolution(FewShotLearningSolution):
     def __init__(self):
         super(ProtoNetBasedFSLSolution, self).__init__()

@@ -1,6 +1,8 @@
 import json
 
 # noinspection PyUnresolvedReferences
+from models.images.classification.few_shot_learning.dummy import *
+# noinspection PyUnresolvedReferences
 from models.images.classification.few_shot_learning.mctdfmn import *
 # noinspection PyUnresolvedReferences
 from models.images.classification.few_shot_learning.protonet import *
@@ -21,6 +23,16 @@ def change_dataset(model_folder: str, dataset_name: str, record: int, val_batch_
         info['n_way'] = val_n_way
     if balanced_batches is not None:
         info['balanced_batches'] = balanced_batches
+
+    if 'image_size' not in info:
+        info['image_size'] = 0
+
+    if 'n_shot' not in info:
+        info['n_shot'] = 1
+
+    if 'dataset' not in info:
+        info['dataset'] = 'none'
+
     model = torch.load(model_file)
     model.eval()
 
@@ -81,9 +93,9 @@ if __name__ == '__main__':
 
     # paths = [
     #     # r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_826860-08-48-08-27-05-2020',
-    #     # 1-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+    #     # 1-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts R750
     #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_565503-44-34-07-28-05-2020'
-    #     # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts
+    #     # 5-shot google-landmarks-selfsupervised->google-landmarks 15-way no ts R760
     # ]
 
     # paths = [
@@ -93,15 +105,27 @@ if __name__ == '__main__':
     #     # 5-shot google-landmarks 15-way no ts no scaling
     # ]
 
+    # paths = [
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_959766-57-51-01-17-06-2020',
+    #     # 1-shot google-landmarks 15-way extended input
+    #     # r''
+    #     # 5-shot google-landmarks 15-way extended input
+    # ]
+
+    # paths = [
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_606743-06-04-06-19-06-2020',
+    #     # 1-shot google-landmarks 15-way extended input PCA
+    #     # r''
+    #     # 5-shot google-landmarks 15-way extended input PCA
+    # ]
+
     paths = [
-        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_959766-57-51-01-17-06-2020',
-        # 1-shot google-landmarks 15-way extended input
-        # r''
-        # 5-shot google-landmarks 15-way extended input
+        r'D:\petrtsv\projects\ds\pytorch-sessions\RANDOM\RANDOM_203154-58-22-18-18-07-2020',
+        # RANDOM
     ]
 
     DATASET_NAME = 'google-landmarks-test'
-    RECORD = 790
+    RECORD = 1000
 
     for path in paths:
         print(path)

@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from data import LABELED_DATASETS, LabeledSubdataset
 from models.images.classification.backbones import NoFlatteningBackbone
 from models.images.classification.few_shot_learning import evaluate_solution_episodes, accuracy, FSLEpisodeSampler, \
-    FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels
+    FEATURE_EXTRACTORS, FSLEpisodeSamplerGlobalLabels, FitTransformFewShotLearningSolution
 from sessions import Session
 from torch_utils import flip_dimension
 from utils import pretty_time, remove_dim, inverse_mapping
@@ -54,7 +54,7 @@ def lr_schedule(iter: int):
         return 0.1
 
 
-class MCTDFMN(nn.Module):
+class MCTDFMN(FitTransformFewShotLearningSolution):
     def __init__(self, train_classes: int, backbone: NoFlatteningBackbone, train_transduction_steps=1,
                  test_transduction_steps=10, lmb=0.2, all_global_prototypes=True, scaling=True,
                  pca=False, extend_input=False,
@@ -116,14 +116,15 @@ class MCTDFMN(nn.Module):
         # print(x.size())
         return x
 
-    def build_prototypes(self, support_set: torch.Tensor, query_set: torch.Tensor):
+    def build_prototypes(self, support_set: torch.Tensor, query_set: torch.Tensor = None):
         its = self.train_ts if self.training else self.test_ts
         self.class_prototypes = torch.mean(support_set, dim=1)
-        for i in range(its):
-            self.class_prototypes = self.update_prototypes(support_set, query_set)
+        if query_set is not None:
+            for i in range(its):
+                self.class_prototypes = self.update_prototypes(support_set, query_set)
 
     def distance(self, a: torch.Tensor, b: torch.Tensor):
-        if self.scaling:
+        if not hasattr(self, 'scaling') or self.scaling:
             a_scale = self.scale_module(a)
             b_scale = self.scale_module(b)
         else:
@@ -207,6 +208,43 @@ class MCTDFMN(nn.Module):
             self.apply_pca_transform()
 
         return self.get_distances(self.query_set_features)
+
+    def fit(self, support_set: torch.Tensor):
+        self.n_classes = support_set.size(0)
+
+        support_set = support_set.to(self.device)
+
+        try:
+            if self.extend_input:
+                flipped_support_set = flip_dimension(support_set, 4)
+
+                support_set = torch.cat([support_set, flipped_support_set], dim=1)
+        except AttributeError:
+            pass
+
+        self.support_set_size = support_set.size(1)
+
+        self.support_set_features = self.extract_features(remove_dim(support_set, 1))
+
+        self.support_set_features = self.support_set_features.view(
+            *([self.n_classes, self.support_set_size] + list(self.support_set_features.shape)[1:]))
+
+        self.build_prototypes(self.support_set_features)
+
+    def transform(self, x: torch.Tensor):
+        x = x.to(self.device)
+
+        if len(x.size()) == 3:
+            x = torch.unsqueeze(x, 0)
+
+        self.query_set_size = len(x)
+
+        self.query_set_features = self.extract_features(x)
+        y = self.get_distances(self.query_set_features)
+        prob = F.softmax(y, dim=1)
+        if prob.size(0) == 1:
+            prob = torch.squeeze(prob, 0)
+        return prob
 
     def forward_with_loss(self, support_set: torch.Tensor, query_set: torch.Tensor,
                           labels: torch.Tensor, global_classes_mapping: dict) -> Tuple[
