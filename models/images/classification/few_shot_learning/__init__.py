@@ -205,7 +205,8 @@ class TripletBatchSampler:
 
 
 def evaluate_solution_episodes(model: FewShotLearningSolution, validation_sampler: FSLEpisodeSampler,
-                               n_iterations=600, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+                               n_iterations=1000,
+                               device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
     val_start_time = time.time()
 
     print("Evaluation started...")

@@ -269,6 +269,7 @@ class MCTDFMN(FitTransformFewShotLearningSolution):
 
         expanded_global_prototypes = cur_global_prototypes
         # expanded_query_set = torch.reshape(self.query_set_features, (self.query_set_features.size(0), -1))
+        # print(self.query_set_features.shape)
         expanded_query_set = self.query_set_features.permute(0, 2, 3, 1).reshape((-1, self.query_set_features.size(1)))
         # print(expanded_query_set.shape)
         # print(expanded_global_prototypes.shape)
@@ -395,7 +396,7 @@ def train_mctdfmn(base_subdataset: LabeledSubdataset, val_subdataset: LabeledSub
 
         loss_plotter.add_point('Loss', iteration, loss.item())
         loss_plotter.add_point('Dense Loss', iteration, loss_d.item())
-        loss_plotter.add_point('Instance Loss', iteration, loss_i.item())
+        loss_plotter.add_point('Instance Loss', iteration, 0.2 * loss_i.item())
         accuracy_plotter.add_point('Train Accuracy', iteration, cur_accuracy)
 
         losses.append(loss.item())
@@ -478,9 +479,9 @@ if __name__ == '__main__':
 
     # PRETRAINING_DATASET_NAME = 'google-landmarks-selfsupervision'
     PRETRAINING_DATASET_NAME = ''
-    DATASET_NAME = 'google-landmarks'
+    DATASET_NAME = 'miniImageNet'
 
-    BASE_CLASSES = 3000
+    BASE_CLASSES = 64
     PRETRAINING_BASE_CLASSES = 8000
 
     AUGMENT_PROB = 1.0
@@ -507,12 +508,12 @@ if __name__ == '__main__':
 
     BALANCED_BATCHES = True
 
-    SCALING = False
-    APPLY_PCA = True
+    SCALING = True
+    APPLY_PCA = False
 
     assert not (SCALING and APPLY_PCA)
 
-    EXTEND_INPUT = True
+    EXTEND_INPUT = False
 
     print("Preparations for training...")
     dataset = LABELED_DATASETS[DATASET_NAME](augment_prob=AUGMENT_PROB, image_size=IMAGE_SIZE)
@@ -530,7 +531,7 @@ if __name__ == '__main__':
 
     for N_SHOT, BATCH_SIZE, VAL_BATCH_SIZE in (
             (1, 5, 5),
-            (5, 3, 3)
+            # (5, 3, 3)
     ):
         pretraining_result = None
 

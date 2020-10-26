@@ -123,6 +123,10 @@ class MiniImageNetDataset(data.LabeledDataset):
         return self.test_subdataset
 
 
+class MiniImageNetTestDataset(MiniImageNetDataset):
+    def __init__(self, root=os.path.join(r'C:\datasets\mini-imagenet', 'test_tensors'), **kwargs):
+        super(MiniImageNetTestDataset, self).__init__(root=root, **kwargs)
+
 def save_as_tensors(source='C:\\datasets\\mini-imagenet\\train', target=r'C:\datasets\mini-imagenet\train_tensors',
                     image_size=84):
     resize = transforms.Compose(

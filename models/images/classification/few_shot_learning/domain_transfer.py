@@ -119,15 +119,19 @@ if __name__ == '__main__':
     #     # 5-shot google-landmarks 15-way extended input PCA
     # ]
 
+    # paths = [
+    #     r'D:\petrtsv\projects\ds\pytorch-sessions\RANDOM\RANDOM_203154-58-22-18-18-07-2020',
+    #     # RANDOM
+    # ]
+
     paths = [
-        r'D:\petrtsv\projects\ds\pytorch-sessions\RANDOM\RANDOM_203154-58-22-18-18-07-2020',
-        # RANDOM
+        r'D:\petrtsv\projects\ds\pytorch-sessions\FSL_MCTDFMN\FSL_MCTDFMN_742585-10-48-10-23-10-2020'
     ]
 
-    DATASET_NAME = 'google-landmarks-test'
-    RECORD = 1000
+    DATASET_NAME = 'miniImageNet-test'
+    RECORD = -1000
 
     for path in paths:
         print(path)
-        change_dataset(path, DATASET_NAME, RECORD, val_batch_size=5, val_n_way=900, balanced_batches=False)
+        change_dataset(path, DATASET_NAME, RECORD, val_batch_size=5, val_n_way=5, balanced_batches=True)
         print()
